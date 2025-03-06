@@ -15,7 +15,8 @@
     "noEmit": true,
 
     // Best practices
-    "strict": true,
+    "strict": false,  // 关闭严格模式
+    "noImplicitAny": false,  // 允许隐式 any
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
 

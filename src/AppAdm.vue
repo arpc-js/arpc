@@ -1,9 +1,10 @@
 <script setup lang="ts">
 
+import Test from "./views/Test.vue";
 </script>
 
 <template>
-adm
+<Test></Test>
 </template>
 
 <style scoped>

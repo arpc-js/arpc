@@ -2,6 +2,8 @@
   "name": "uni-preset-vue",
   "version": "0.0.0",
   "scripts": {
+    "dev": "npm-run-all -p back dev:h5 dev:adm dev:mp-weixin",
+    "back": "bun --watch run src/index.ts",
     "dev:custom": "uni -p",
     "dev:adm": "vite --port 5174 --mode adm",
     "dev:h5": "uni",
@@ -65,6 +67,7 @@
     "typescript": "^5",
     "vite": "5.2.8",
     "vue-tsc": "^1.0.24",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "npm-run-all2": "latest"
   }
 }
