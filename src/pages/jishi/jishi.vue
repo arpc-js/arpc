@@ -1,96 +1,72 @@
 <template>
   <view class="content">
-    <uni-swiper-dot class="uni-swiper-dot-box" @clickItem=clickItem :info="info" :current="current" :mode="mode"
-                    :dots-styles="dotsStyles" field="content">
-      <swiper class="swiper-box" @change="change" :current="swiperDotIndex">
-        <swiper-item v-for="(item, index) in info" :key="index">
-            <image style="width: 100%" :src="item.url"></image>
-        </swiper-item>
-      </swiper>
-    </uni-swiper-dot>
-    <uni-section title="全部项目" type="line">
+    <uni-section title="选择技师" type="line">
       <uni-list>
         <view class="service-card">
-          <image src="https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405"
+          <image src="https://wx2.sinaimg.cn/mw690/007JHMfMgy1hyel2iby2lj30sg0sgtbo.jpg"
                  class="service-img"
                  mode="aspectFill"></image>
           <view class="content-wrapper">
-            <view class="title">古法推拿</view>
-
+            <view class="title">李雅</view>
             <view class="duration-badge">
-              <uni-badge text="60分钟"
-                         custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge text="6年" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge text="29岁" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
             </view>
-
-            <view class="sales">已售1000份</view>
-
             <view class="price" style="display: flex">
-              <text class="current-price">￥219</text>
-              <text class="original-price">￥399</text>
-              <button type="default" style="color: white;background-color: #4cd964;height: 60upx;border-radius: 30upx;line-height:55upx">选择技师</button>
+              <text class="original-price">100人关注</text>
+              <text class="original-price">34好评</text>
+              <button type="default" style="color: white;background-color: #4cd964;height: 60upx;border-radius: 30upx;line-height:55upx">立即聊天</button>
             </view>
           </view>
         </view>
         <view class="service-card">
-          <image src="https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405"
+          <image src="https://gimg2.baidu.com/image_search/src=http%3A%2F%2Fsafe-img.xhscdn.com%2Fbw1%2F531f429d-7666-4b23-92ce-bed776ae7719%3FimageView2%2F2%2Fw%2F1080%2Fformat%2Fjpg&refer=http%3A%2F%2Fsafe-img.xhscdn.com&app=2002&size=f9999,10000&q=a80&n=0&g=0n&fmt=auto?sec=1743930305&t=89ac999fe39c9259ca660d30ec5a02dc"
                  class="service-img"
                  mode="aspectFill"></image>
           <view class="content-wrapper">
-            <view class="title">精油开背</view>
-
+            <view class="title">赵薇</view>
             <view class="duration-badge">
-              <uni-badge text="60分钟"
-                         custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge text="6年" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge text="29岁" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
             </view>
-
-            <view class="sales">已售1000份</view>
-
             <view class="price" style="display: flex">
-              <text class="current-price">￥219</text>
-              <text class="original-price">￥399</text>
-              <button type="default" style="color: white;background-color: #4cd964;height: 60upx;border-radius: 30upx;line-height:55upx">选择技师</button>
+              <text class="original-price">100人关注</text>
+              <text class="original-price">34好评</text>
+              <button type="default" style="color: white;background-color: #4cd964;height: 60upx;border-radius: 30upx;line-height:55upx">立即聊天</button>
             </view>
           </view>
         </view>
         <view class="service-card">
-          <image src="https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405"
+          <image src="https://ww1.sinaimg.cn/mw690/c4877746ly1hsxzy9qflcj20sq0sq7a1.jpg"
                  class="service-img"
                  mode="aspectFill"></image>
           <view class="content-wrapper">
-            <view class="title">泰式spa</view>
-
+            <view class="title">王美</view>
             <view class="duration-badge">
-              <uni-badge text="60分钟"
-                         custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge text="6年" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge text="29岁" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
             </view>
-
-            <view class="sales">已售1000份</view>
-
             <view class="price" style="display: flex">
-              <text class="current-price">￥219</text>
-              <text class="original-price">￥399</text>
-              <button type="default" style="color: white;background-color: #4cd964;height: 60upx;border-radius: 30upx;line-height:55upx">选择技师</button>
+              <text class="original-price">100人关注</text>
+              <text class="original-price">34好评</text>
+              <button type="default" style="color: white;background-color: #4cd964;height: 60upx;border-radius: 30upx;line-height:55upx">立即聊天</button>
             </view>
           </view>
         </view>
         <view class="service-card">
-          <image src="https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405"
+          <image src="https://wx3.sinaimg.cn/mw690/006i0nC8ly1hquk6owrwoj31o01o0qs9.jpg"
                  class="service-img"
                  mode="aspectFill"></image>
           <view class="content-wrapper">
-            <view class="title">古法推拿</view>
-
+            <view class="title">张丽</view>
             <view class="duration-badge">
-              <uni-badge text="60分钟"
-                         custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge text="6年" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge text="29岁" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
             </view>
-
-            <view class="sales">已售1000份</view>
-
             <view class="price" style="display: flex">
-              <text class="current-price">￥219</text>
-              <text class="original-price">￥399</text>
-              <button type="default" style="color: white;background-color: #4cd964;height: 60upx;border-radius: 30upx;line-height:55upx">选择技师</button>
+              <text class="original-price">100人关注</text>
+              <text class="original-price">34好评</text>
+              <button type="default" style="color: white;background-color: #4cd964;height: 60upx;border-radius: 30upx;line-height:55upx">立即聊天</button>
             </view>
           </view>
         </view>
@@ -445,9 +421,7 @@ export default {
   line-height:65upx;
   font-size: 20rpx;
   color: #999;
-  margin-left: 15rpx;
-  text-decoration: line-through;
-}
+  margin-left: 15rpx;}
 </style>
 
 
