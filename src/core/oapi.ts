@@ -49,7 +49,11 @@ let log = {
         })
     },
 }
-
+//oapi.route({})
+//oapi.post、get
+//oapi.intercepter
+//opai.cros(配置)
+//opai.jwt()//开启jwt和接口权限
 function run() {
     let routeMap = {
         "/test/test": (req: Request) => {

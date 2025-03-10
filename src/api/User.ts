@@ -1,11 +1,10 @@
-import {Base} from "../core/Base.ts";
-import {ctx, log} from "../core/oapi.ts";
-
-export class User extends Base<User>{
-    name;age
-    async add1(id,name){
-        let name1='zs'
-        log.info(`用户名错误:${name1}`)
-        return 'user后端返回值:你好'+ctx("rid")
+import  {Order} from "./Order.ts";
+export class User {
+    id:number
+    name:string
+    age:number
+    order:Order
+    add(){
+        console.log(111)
     }
 }

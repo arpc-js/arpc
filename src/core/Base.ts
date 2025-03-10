@@ -19,6 +19,12 @@ export class Base<T> {
 
     }
     add(){
+
+
+        let v=Object.keys(this).map(x=>'?').join(',')
+        getDB().prepare(`INSERT INTO ${this.constructor.name} VALUES (${v})`).run(...Object.values(this))
+    }
+    addone(){
         let v=Object.keys(this).map(x=>'?').join(',')
         getDB().prepare(`INSERT INTO ${this.constructor.name} VALUES (${v})`).run(...Object.values(this))
     }
