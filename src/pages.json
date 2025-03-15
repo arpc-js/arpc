@@ -62,6 +62,31 @@
     "enablePullDownRefresh": true
   }
 }
+    ,
+    {
+  "path": "pages/chat/chat",
+  "style": {
+    "navigationBarTitleText": "",
+    "enablePullDownRefresh": true
+  }
+}
+    ,
+    {
+  "path": "pages/login/login",
+  "style": {
+    "navigationBarTitleText": "",
+    "enablePullDownRefresh": true
+  }
+}
+    ,
+    {
+  "path": "pages/video/video",
+  "style": {
+    "navigationBarTitleText": "",
+    "enablePullDownRefresh": true
+  }
+}
+
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",

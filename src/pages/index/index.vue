@@ -4,7 +4,7 @@
                     :dots-styles="dotsStyles" field="content">
       <swiper class="swiper-box" @change="change" :current="swiperDotIndex">
         <swiper-item v-for="(item, index) in info" :key="index">
-            <image style="width: 100%" :src="item.url"></image>
+          <image style="width: 100%" :src="item.url"></image>
         </swiper-item>
       </swiper>
     </uni-swiper-dot>
@@ -27,7 +27,7 @@
             <view class="price" style="display: flex">
               <text class="current-price">￥219</text>
               <text class="original-price">￥399</text>
-              <button type="default" style="color: white;background-color: #4cd964;height: 60upx;border-radius: 30upx;line-height:55upx">选择技师</button>
+              <button @click="to(`/pages/jishi/jishi?id=1`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">选择技师</button>
             </view>
           </view>
         </view>
@@ -48,7 +48,7 @@
             <view class="price" style="display: flex">
               <text class="current-price">￥219</text>
               <text class="original-price">￥399</text>
-              <button type="default" style="color: white;background-color: #4cd964;height: 60upx;border-radius: 30upx;line-height:55upx">选择技师</button>
+              <button @click="to(`/pages/jishi/jishi?id=1`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">选择技师</button>
             </view>
           </view>
         </view>
@@ -69,7 +69,7 @@
             <view class="price" style="display: flex">
               <text class="current-price">￥219</text>
               <text class="original-price">￥399</text>
-              <button type="default" style="color: white;background-color: #4cd964;height: 60upx;border-radius: 30upx;line-height:55upx">选择技师</button>
+              <button @click="to(`/pages/jishi/jishi?id=1`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">选择技师</button>
             </view>
           </view>
         </view>
@@ -90,7 +90,7 @@
             <view class="price" style="display: flex">
               <text class="current-price">￥219</text>
               <text class="original-price">￥399</text>
-              <button type="default" style="color: white;background-color: #4cd964;height: 60upx;border-radius: 30upx;line-height:55upx">选择技师</button>
+              <button @click="to(`/pages/jishi/jishi?id=1`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">选择技师</button>
             </view>
           </view>
         </view>
@@ -105,7 +105,7 @@ export default {
     return {
       info: [{
         colorClass: 'uni-bg-red',
-        url: 'https://pic.rmb.bdstatic.com/bjh/news/db6e8c9afebaa4ed7bf43557189f6b175625.png',
+        url: 'https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405',
         content: '内容 A'
       },
         {
@@ -149,7 +149,84 @@ export default {
       swiperDotIndex: 0
     }
   },
-  onLoad() {},
+  onLoad(options) {
+    uni.getSetting({
+      success(res) {
+        if (res.authSetting['scope.userLocation']) {
+          uni.getLocation({
+            type: 'gcj02', // 标准GPS坐标
+            success: (res) => {
+              uni.openLocation({
+                latitude: res.latitude,
+                longitude: res.longitude,
+                success: function () {
+                  console.log('success');
+                }
+              });
+              console.log(`${res.longitude},${res.latitude}`)
+              uni.showToast({
+                title:`${res.longitude},${res.latitude}`,
+                icon: 'none'
+              });
+            },
+            fail: (err) => {
+              console.error('获取位置失败:', err);
+              uni.showToast({
+                title: '需要位置权限才能计算距离',
+                icon: 'none'
+              });
+            }
+          });
+        }else {
+          // 未授权时主动请求
+          uni.authorize({
+            scope: 'scope.userLocation',
+            success() {
+              // 授权成功后再次获取位置
+              uni.getLocation({
+                type: 'wgs84', // 标准GPS坐标
+                success: (res) => {
+                  console.log(`${res.longitude},${res.latitude}`)
+                  uni.showToast({
+                    title:`${res.longitude},${res.latitude}`,
+                    icon: 'none'
+                  });
+                },
+                fail: (err) => {
+                  console.error('获取位置失败:', err);
+                  uni.showToast({
+                    title: '需要位置权限才能计算距离',
+                    icon: 'none'
+                  });
+                }
+              });
+            },
+            fail() {
+              // 引导用户手动开启
+              uni.showModal({
+                title: '权限提示',
+                content: '需要位置权限，请到设置页面开启',
+                success(res) {
+                  if (res.confirm) {
+                    uni.openSetting(); // 打开设置页面
+                  }
+                }
+              });
+            }
+          });
+        }
+      }
+    });
+
+    uni.login({
+      provider: 'weixin', //使用微信登录
+      success: function (loginRes) {
+        console.log(loginRes);
+      },
+    });
+    // 添加页面加载提示
+
+  },
   methods: {
     change(e) {
       this.current = e.detail.current

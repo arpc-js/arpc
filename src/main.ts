@@ -1,3 +1,7 @@
 import { createApp } from 'vue'
 import App from './App.vue'
-createApp(App).mount('#app')
+const app=createApp(App)
+app.config.globalProperties.to  = (url)=>{
+    uni.navigateTo({  url: url})
+}
+app.mount('#app')
