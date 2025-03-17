@@ -5,4 +5,5 @@ await Bun.build({
     entrypoints: ['./src/index.ts'],
     outdir: './build',
     plugins: [meta_plugin],
+    target:"bun"
 })

@@ -10,7 +10,7 @@ onMounted(async ()=>{
 </script>
 
 <template>
-  <div>vue rpc调用后端对象</div>
+  <div>管理系统</div>
 {{msg}}
 </template>
 

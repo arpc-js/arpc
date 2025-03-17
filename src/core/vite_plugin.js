@@ -13,7 +13,7 @@ function getAllMethodsDeep(obj) {
 
     return Array.from(methods);
 }
-function rpc_proxy() {
+function rpc_proxy(mode) {
     return {
         name: 'proxy',
         async transform(code, id) {
@@ -24,7 +24,9 @@ function rpc_proxy() {
                 let name=obj.constructor.name
                 let attr=Object.keys(obj)
                 let fns=getAllMethodsDeep( obj)
-                let aa=fns.map(x=>`async ${x}(...args){
+                let aa=null
+                if (mode=='adm'){
+                    aa=fns.map(x=>`async ${x}(...args){
               let rsp=await fetch('http://localhost:3000/${name}/${x}',{
                   method: 'POST',
                   body:JSON.stringify({args:args})
@@ -34,6 +36,20 @@ function rpc_proxy() {
               }
               return await rsp.json()
               }`)
+                }else {
+                    aa=fns.map(x=>`async ${x}(...args){
+        const response = await uni.request({
+            url: 'http://localhost:3000/${name}/${x}',
+            method: 'POST',
+            header:{'Authorization':uni.getStorageSync('token')},
+            data: {args:args}
+        });
+        if (response.statusCode  === 500) {
+            throw response.data
+        }
+        return response.data;
+              }`)
+                }
                 //User源代码被替换了
                 code = `export class ${name} {
                                 ${attr.join(';')}

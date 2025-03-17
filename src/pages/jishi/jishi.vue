@@ -1,98 +1,72 @@
 <template>
   <view class="content">
-    <uni-swiper-dot class="uni-swiper-dot-box" @clickItem=clickItem :info="info" :current="current" :mode="mode"
-                    :dots-styles="dotsStyles" field="content">
-      <swiper class="swiper-box" @change="change" :current="swiperDotIndex">
-        <swiper-item v-for="(item, index) in info" :key="index">
-          <image style="width: 100%" :src="item.url"></image>
-        </swiper-item>
-      </swiper>
-    </uni-swiper-dot>
-    <button @click="chatStore.handleMsg({uid:1,msg:`${new Date().getTime()}`})">1</button>
-    <button @click="chatStore.handleMsg({uid:2,msg:`${new Date().getTime()}`})">2</button>
-    <uni-section title="全部项目" type="line">
+    <uni-section title="选择工人" type="line">
       <uni-list>
         <view class="service-card">
-          <image src="https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405"
+          <image src="https://wx2.sinaimg.cn/mw690/007JHMfMgy1hyel2iby2lj30sg0sgtbo.jpg"
                  class="service-img"
                  mode="aspectFill"></image>
           <view class="content-wrapper">
-            <view class="title">it编程测试1</view>
-
+            <view class="title">水电工小张</view>
             <view class="duration-badge">
-              <uni-badge text="60分钟"
-                         custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge text="6年经验" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge text="29岁" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
             </view>
-
-            <view class="sales">已售1000份</view>
-
             <view class="price" style="display: flex">
-              <text class="current-price">￥219</text>
-              <text class="original-price">￥399</text>
-              <button @click="to(`/pages/jishi/jishi?id=1`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">选择项目</button>
+              <text class="original-price">100人关注</text>
+              <text class="original-price">34好评</text>
+              <button @click="to(`/pages/chat/chat?id=1`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">立即聊天</button>
             </view>
           </view>
         </view>
         <view class="service-card">
-          <image src="https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405"
+          <image src="https://gimg2.baidu.com/image_search/src=http%3A%2F%2Fsafe-img.xhscdn.com%2Fbw1%2F531f429d-7666-4b23-92ce-bed776ae7719%3FimageView2%2F2%2Fw%2F1080%2Fformat%2Fjpg&refer=http%3A%2F%2Fsafe-img.xhscdn.com&app=2002&size=f9999,10000&q=a80&n=0&g=0n&fmt=auto?sec=1743930305&t=89ac999fe39c9259ca660d30ec5a02dc"
                  class="service-img"
                  mode="aspectFill"></image>
           <view class="content-wrapper">
-            <view class="title">it编程测试2</view>
-
+            <view class="title">抹灰小王</view>
             <view class="duration-badge">
-              <uni-badge text="60分钟"
-                         custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge text="6年经验" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge text="29岁" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
             </view>
-
-            <view class="sales">已售1000份</view>
-
             <view class="price" style="display: flex">
-              <text class="current-price">￥219</text>
-              <text class="original-price">￥399</text>
-              <button @click="to(`/pages/jishi/jishi?id=1`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">选择项目</button>
+              <text class="original-price">100人关注</text>
+              <text class="original-price">34好评</text>
+              <button @click="to(`/pages/chat/chat?id=2`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">立即聊天</button>
             </view>
           </view>
         </view>
         <view class="service-card">
-          <image src="https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405"
+          <image src="https://ww1.sinaimg.cn/mw690/c4877746ly1hsxzy9qflcj20sq0sq7a1.jpg"
                  class="service-img"
                  mode="aspectFill"></image>
           <view class="content-wrapper">
-            <view class="title">it编程测试3</view>
-
+            <view class="title">贴砖小李</view>
             <view class="duration-badge">
-              <uni-badge text="60分钟"
-                         custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge text="6年经验" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge text="29岁" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
             </view>
-
-            <view class="sales">已售1000份</view>
-
             <view class="price" style="display: flex">
-              <text class="current-price">￥219</text>
-              <text class="original-price">￥399</text>
-              <button @click="to(`/pages/jishi/jishi?id=1`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">选择项目</button>
+              <text class="original-price">100人关注</text>
+              <text class="original-price">34好评</text>
+              <button type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">立即聊天</button>
             </view>
           </view>
         </view>
         <view class="service-card">
-          <image src="https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405"
+          <image src="https://wx3.sinaimg.cn/mw690/006i0nC8ly1hquk6owrwoj31o01o0qs9.jpg"
                  class="service-img"
                  mode="aspectFill"></image>
           <view class="content-wrapper">
-            <view class="title">it编程测试</view>
-
+            <view class="title">木匠小王</view>
             <view class="duration-badge">
-              <uni-badge text="60分钟"
-                         custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge text="6年" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge text="29岁" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
             </view>
-
-            <view class="sales">已售1000份</view>
-
             <view class="price" style="display: flex">
-              <text class="current-price">￥219</text>
-              <text class="original-price">￥399</text>
-              <button @click="to(`/pages/jishi/jishi?id=1`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">选择项目</button>
+              <text class="original-price">100人关注</text>
+              <text class="original-price">34好评</text>
+              <button type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">立即聊天</button>
             </view>
           </view>
         </view>
@@ -101,16 +75,15 @@
   </view>
 </template>
 <script>
-import {User} from "../../api/User";
 export default {
   components: {},
   data() {
     return {
-      info: [/*{
+      info: [{
         colorClass: 'uni-bg-red',
-        url: 'https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405',
+        url: 'https://pic.rmb.bdstatic.com/bjh/news/db6e8c9afebaa4ed7bf43557189f6b175625.png',
         content: '内容 A'
-      },*/
+      },
         {
           colorClass: 'uni-bg-green',
           url: 'https://qiniu-web-assets.dcloud.net.cn/unidoc/zh/shuijiao.jpg',
@@ -152,19 +125,7 @@ export default {
       swiperDotIndex: 0
     }
   },
-  async onLoad(options) {
-    console.log('chatStore:',this.chatStore)
-    //两行代码前后端通信
-    let u=new User()
-    let token=await u.get('2')
-
-/*    let {authSetting}=await uni.getSetting()
-    if (authSetting['scope.userLocation']) {
-      await uni.authorize({scope: 'scope.userLocation'})
-    }
-    let {longitude,latitude}=await uni.getLocation({type: 'gcj02'})
-    await uni.openLocation({latitude: latitude, longitude: longitude})*/
-  },
+  onLoad(opt) {},
   methods: {
     change(e) {
       this.current = e.detail.current
@@ -437,7 +398,7 @@ export default {
 }
 
 .title {
-  font-size: 38upx;
+  font-size: 38rpx;
   font-weight: 900;
   color: #333;
 }
@@ -457,12 +418,10 @@ export default {
 }
 
 .original-price {
-  line-height:65upx;
+  line-height:65rpx;
   font-size: 20rpx;
   color: #999;
-  margin-left: 15rpx;
-  text-decoration: line-through;
-}
+  margin-left: 15rpx;}
 </style>
 
 
