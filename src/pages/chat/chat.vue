@@ -8,28 +8,28 @@
         @scrolltoupper="loadHistory"
     >
       <view
-          v-for="(item, index) in messageList"
+          v-for="(item, index) in chatStore.messages"
           :key="index"
           class="message-item"
-          :class="item.type === 'self' ? 'self-message' : 'other-message'"
+          :class="item.uid === myid ? 'self-message' : 'other-message'"
       >
         <!-- 对方头像 -->
         <image
-            v-if="item.type === 'other'"
+            v-if="item.uid != myid"
             class="avatar"
-            :src="item.avatar"
+            :src="item.icon"
         ></image>
 
         <!-- 消息内容 -->
         <view class="message-bubble">
-          <text class="message-text">{{ item.content }}</text>
+          <text class="message-text">{{ item.msg }}</text>
         </view>
 
         <!-- 自己头像 -->
         <image
-            v-if="item.type === 'self'"
+            v-if="item.uid === myid"
             class="avatar"
-            :src="item.avatar"
+            :src="item.icon"
         ></image>
       </view>
     </scroll-view>
@@ -51,6 +51,8 @@
 export default {
   data() {
     return {
+      uid:0,
+      myid:0,
       inputMessage: '',
       scrollTop: 0,
       messageList: [
@@ -68,24 +70,23 @@ export default {
     }
   },
   async onLoad({id}) {
+    this.uid=id
+    this.myid=uni.getStorageSync('uid')
     console.log(id)
+    this.chatStore.chat(id)
   },
   methods: {
     sendMessage() {
       if (!this.inputMessage.trim()) return
-
-      this.messageList.push({
-        type: 'self',
-        content: this.inputMessage,
-        avatar: '/static/my-avatar.png'
-      })
+      this.chatStore.handleMsg({uid:this.myid,name:'我',icon:'https://img2.baidu.com/it/u=2955298602,2265234608&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=500',time:new Date().getTime(),msg:this.inputMessage},
+          this.uid)
 
       // 清空输入框
       this.inputMessage = ''
 
       // 滚动到底部
       this.$nextTick(() => {
-        this.scrollToBottom()
+        this.scrollerToBottom()
       })
     },
     scrollerToBottom() {

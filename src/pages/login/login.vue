@@ -45,6 +45,13 @@
       <button
           class="login-btn"
           :disabled="canLogin"
+          @click="to('/pages/jishi/register')"
+      >
+        技师入住
+      </button>
+      <button
+          class="login-btn"
+          :disabled="canLogin"
           @click="handleLogin"
       >
         登录
@@ -85,6 +92,7 @@ import {User} from "../../api/User";
 export default {
   data() {
     return {
+      u:new User(),
       phone: '',         // 手机号
       code: '',          // 验证码
       isAgree: false,    // 是否同意协议
@@ -143,13 +151,17 @@ export default {
         this.codeBtnText = `${this.countDown}s后重新获取`
       }, 1000)
     },
-
+    async jishi() {
+      let {uid,token}=await this.u.add()
+      console.log('jwt token:',token)
+      uni.setStorageSync('token',token)
+      uni.setStorageSync('uid',uid)
+    },
     // 手机号登录
     async handleLogin() {
       try {
         let {code}=await uni.login({provider: 'weixin'});
-        let u=new User()
-        let {uid,token}=await u.login(code)
+        let {uid,token}=await this.u.login(code)
         console.log('jwt token:',token)
         uni.setStorageSync('token',token)
         uni.setStorageSync('uid',uid)
@@ -157,10 +169,9 @@ export default {
           url:`ws://localhost:3000/ws`,
           header:{Authorization:token}
         })
-        uni.onSocketMessage(msg=>{
-          console.log(msg)
-          let data=JSON.parse(msg)
-
+        uni.onSocketMessage(rsp=>{
+          console.log(rsp.data,typeof rsp.data)
+          this.chatStore.handleMsg(JSON.parse(rsp.data))
         })
         uni.reLaunch({  url: '/pages/me/me' })
       } catch (error) {

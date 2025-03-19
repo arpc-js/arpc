@@ -78,6 +78,14 @@
     "enablePullDownRefresh": true
   }
 }
+      ,
+      {
+  "path": "pages/jishi/register",
+  "style": {
+    "navigationBarTitleText": "",
+    "enablePullDownRefresh": true
+  }
+}
     ],
 	"globalStyle": {
 		"navigationBarTextStyle": "black",

@@ -27,7 +27,7 @@ function rpc_proxy(mode) {
                 let aa=null
                 if (mode=='adm'){
                     aa=fns.map(x=>`async ${x}(...args){
-              let rsp=await fetch('http://localhost:3000/${name}/${x}',{
+              let rsp=await fetch('http://chenmeijia.top/${name}/${x}',{
                   method: 'POST',
                   body:JSON.stringify({args:args})
               })
@@ -39,10 +39,10 @@ function rpc_proxy(mode) {
                 }else {
                     aa=fns.map(x=>`async ${x}(...args){
         const response = await uni.request({
-            url: 'http://localhost:3000/${name}/${x}',
+            url: 'http://chenmeijia.top/${name}/${x}',
             method: 'POST',
             header:{'Authorization':uni.getStorageSync('token')},
-            data: {args:args}
+            data: {attr:this,args:args}
         });
         if (response.statusCode  === 500) {
             throw response.data

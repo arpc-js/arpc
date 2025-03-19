@@ -37,6 +37,7 @@ export function tx(target: any, methodName: string, descriptor: PropertyDescript
 }
 export class Base<T> {
     static async migrate() {
+        delete this['meta']['plugin']
         console.log(this['meta'])
         let body = Object.entries(this['meta']).map(([k, v]) => {
             let type = this['meta'][k]
@@ -56,8 +57,9 @@ export class Base<T> {
                 return `"${k}" TIMESTAMPTZ`
             }
         })
-        console.log(body)
-        let rsp = await sql.unsafe(`create table if not exists "${this.name}"(${body})`)
+        let statement=`create table if not exists "${this.name}"(${body})`
+        console.log(statement)
+        let rsp = await sql.unsafe(statement)
         console.log(rsp)
     }
 

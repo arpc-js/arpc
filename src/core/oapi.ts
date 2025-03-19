@@ -62,9 +62,10 @@ export class Oapi {
     use(...pligins){
         this.plugin.push(...pligins)
     }
-    run(){
+    async run() {
         initBase()
         let classMap = {}
+
         async function getObj(clazz: string, json: any) {
             //@ts-ignore
             if (!classMap[clazz]) {
@@ -72,18 +73,35 @@ export class Oapi {
                 classMap[clazz] = Object.values(await import(`../api/${clazz}`))[0]
             }
             //@ts-ignore
-            return new classMap[clazz]
+            let obj=new classMap[clazz]
+            return Object.assign(obj,json)
         }
 
-        const server =Bun.serve({
+        const server = Bun.serve({
+            port:80,
+            routes: {
+                "/static/:id": req => {
+                    return new Response( Bun.file(`src/static/${req.params.id}`))
+                },
+                "/down/:id":async req => {
+                    return new Response(await  Bun.file(`src/static/${req.params.id}`).bytes())
+                },
+                "/up":async req => {
+                    const formdata = await req.formData();
+                    const file = formdata.get('file');
+                    if (!file) throw new Error('Must upload a profile picture.');
+                    //await Bun.write(`src/static/${file['name']}`, file)
+                    return new Response('http://127.0.0.1:3000/static/ZLCGY2fCEGcp79f38e404f6984006610d035c448fcc8.jpg')
+                }
+            },
             //routes: routeMap,
-            async fetch(req,server) {
+            async fetch(req, server) {
                 try {
                     const path = new URL(req.url).pathname;
                     if (path === "/ws") {
-                        let auth=new Auth('asfdsf')
-                        let payload=await auth.verifyJWT(req.headers.get('Authorization'))
-                        if (server.upgrade(req,{data:{uid:payload['uid']}})) {
+                        let auth = new Auth('asfdsf')
+                        let payload = await auth.verifyJWT(req.headers.get('Authorization'))
+                        if (server.upgrade(req, {data: {uid: payload['uid']}})) {
                             return; // do not return a Response
                         }
                     }
@@ -92,16 +110,18 @@ export class Oapi {
                     }
                     let json = await req.json()
                     const [_, clazz, fn] = path.split('/')
-                    let obj = await getObj(clazz, {})//大小写都可以,json.atrr
-                    let whiteList=['/User/login']
+                    let obj = await getObj(clazz, json.attr)//大小写都可以,json.atrr
+                    let whiteList = ['/User/login']
                     let payload
-                    if (!whiteList.includes(path)){
-                        let auth=new Auth('asfdsf')
-                         payload=await auth.verifyJWT(req.headers.get('Authorization')).catch(e=>{throw '403'})
+                    if (!whiteList.includes(path)) {
+                        let auth = new Auth('asfdsf')
+                        payload = await auth.verifyJWT(req.headers.get('Authorization')).catch(e => {
+                            throw '403'
+                        })
                     }
                     //@ts-ignore
                     let rsp = null
-                    await asyncLocalStorage.run({rid: Date.now(),uid:payload, req: req}, async () => {
+                    await asyncLocalStorage.run({rid: Date.now(), uid: payload, req: req}, async () => {
                         rsp = Response.json(await obj[fn](...json.args))
                     })
                     rsp.headers.set('Access-Control-Allow-Origin', '*');
@@ -124,12 +144,12 @@ export class Oapi {
                     const msg = `${ws.data.uid} has been received`;
                     console.log(msg)
                     ws.subscribe(`${ws.data.uid}`);
-                    ws.send(msg)
+                    ws.send(JSON.stringify({msg: msg}))
                 },
                 message(ws, message) {
                     console.log(message)
-                    let m=JSON.parse(message)
-                    m['from']=ws.data.uid
+                    let m = JSON.parse(message)
+                    m['from'] = ws.data.uid
                     // this is a group chat
                     // so the server re-broadcasts incoming message to everyone
                     server.publish(m.to, m);

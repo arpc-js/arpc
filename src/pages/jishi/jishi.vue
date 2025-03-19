@@ -2,71 +2,21 @@
   <view class="content">
     <uni-section title="选择工人" type="line">
       <uni-list>
-        <view class="service-card">
-          <image src="https://wx2.sinaimg.cn/mw690/007JHMfMgy1hyel2iby2lj30sg0sgtbo.jpg"
+        <view class="service-card" v-for="(item, index) in list">
+          <image :src="item.avatar"
                  class="service-img"
                  mode="aspectFill"></image>
           <view class="content-wrapper">
-            <view class="title">水电工小张</view>
+            <view class="title">{{item.name}}</view>
             <view class="duration-badge">
               <uni-badge text="6年经验" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
               <uni-badge text="29岁" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
             </view>
             <view class="price" style="display: flex">
               <text class="original-price">100人关注</text>
-              <text class="original-price">34好评</text>
-              <button @click="to(`/pages/chat/chat?id=1`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">立即聊天</button>
-            </view>
-          </view>
-        </view>
-        <view class="service-card">
-          <image src="https://gimg2.baidu.com/image_search/src=http%3A%2F%2Fsafe-img.xhscdn.com%2Fbw1%2F531f429d-7666-4b23-92ce-bed776ae7719%3FimageView2%2F2%2Fw%2F1080%2Fformat%2Fjpg&refer=http%3A%2F%2Fsafe-img.xhscdn.com&app=2002&size=f9999,10000&q=a80&n=0&g=0n&fmt=auto?sec=1743930305&t=89ac999fe39c9259ca660d30ec5a02dc"
-                 class="service-img"
-                 mode="aspectFill"></image>
-          <view class="content-wrapper">
-            <view class="title">抹灰小王</view>
-            <view class="duration-badge">
-              <uni-badge text="6年经验" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
-              <uni-badge text="29岁" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
-            </view>
-            <view class="price" style="display: flex">
-              <text class="original-price">100人关注</text>
-              <text class="original-price">34好评</text>
-              <button @click="to(`/pages/chat/chat?id=2`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">立即聊天</button>
-            </view>
-          </view>
-        </view>
-        <view class="service-card">
-          <image src="https://ww1.sinaimg.cn/mw690/c4877746ly1hsxzy9qflcj20sq0sq7a1.jpg"
-                 class="service-img"
-                 mode="aspectFill"></image>
-          <view class="content-wrapper">
-            <view class="title">贴砖小李</view>
-            <view class="duration-badge">
-              <uni-badge text="6年经验" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
-              <uni-badge text="29岁" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
-            </view>
-            <view class="price" style="display: flex">
-              <text class="original-price">100人关注</text>
-              <text class="original-price">34好评</text>
-              <button type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">立即聊天</button>
-            </view>
-          </view>
-        </view>
-        <view class="service-card">
-          <image src="https://wx3.sinaimg.cn/mw690/006i0nC8ly1hquk6owrwoj31o01o0qs9.jpg"
-                 class="service-img"
-                 mode="aspectFill"></image>
-          <view class="content-wrapper">
-            <view class="title">木匠小王</view>
-            <view class="duration-badge">
-              <uni-badge text="6年" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
-              <uni-badge text="29岁" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
-            </view>
-            <view class="price" style="display: flex">
-              <text class="original-price">100人关注</text>
-              <text class="original-price">34好评</text>
-              <button type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">立即聊天</button>
+<!--              <text class="original-price">34好评</text>-->
+              <button @click="pay()" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">下单</button>
+              <button @click="to(`/pages/chat/chat?id=${item.id}`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">聊天</button>
             </view>
           </view>
         </view>
@@ -75,10 +25,13 @@
   </view>
 </template>
 <script>
+import {User} from "../../api/User";
+
 export default {
   components: {},
   data() {
     return {
+      list:[],
       info: [{
         colorClass: 'uni-bg-red',
         url: 'https://pic.rmb.bdstatic.com/bjh/news/db6e8c9afebaa4ed7bf43557189f6b175625.png',
@@ -125,8 +78,30 @@ export default {
       swiperDotIndex: 0
     }
   },
-  onLoad(opt) {},
+  async onLoad(opt) {
+    let u=new User()
+    this.list=await u.gets()
+    this.list=this.list.filter(x=>x.type==1)
+  },
   methods: {
+    pay() {
+      //打开微信收银台
+      uni.requestPayment({
+        provider: 'wxpay',
+        "nonceStr": "971dfa67682c99d47f5695148d60c6f1",
+        "package": "prepay_id=wx1315054694597227774df9bcd5b1560000",
+        "signType": "MD5",
+        "paySign": "9F713089156EB319C0B89F470CD0D1CD",
+        "timeStamp": "1741849547",
+        success: function (res) {
+          console.log('success:' + JSON.stringify(res));
+        },
+        fail: function (err) {
+          console.log('fail:' + JSON.stringify(err));
+        }
+      });
+
+    },
     change(e) {
       this.current = e.detail.current
     },

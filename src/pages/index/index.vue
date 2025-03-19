@@ -8,8 +8,6 @@
         </swiper-item>
       </swiper>
     </uni-swiper-dot>
-    <button @click="chatStore.handleMsg({uid:1,msg:`${new Date().getTime()}`})">1</button>
-    <button @click="chatStore.handleMsg({uid:2,msg:`${new Date().getTime()}`})">2</button>
     <uni-section title="全部项目" type="line">
       <uni-list>
         <view class="service-card">
@@ -17,7 +15,7 @@
                  class="service-img"
                  mode="aspectFill"></image>
           <view class="content-wrapper">
-            <view class="title">it编程测试1</view>
+            <view class="title">it编程测试11</view>
 
             <view class="duration-badge">
               <uni-badge text="60分钟"
@@ -106,11 +104,11 @@ export default {
   components: {},
   data() {
     return {
-      info: [/*{
+      info: [{
         colorClass: 'uni-bg-red',
         url: 'https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405',
         content: '内容 A'
-      },*/
+      },
         {
           colorClass: 'uni-bg-green',
           url: 'https://qiniu-web-assets.dcloud.net.cn/unidoc/zh/shuijiao.jpg',

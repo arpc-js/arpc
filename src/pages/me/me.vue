@@ -3,7 +3,7 @@
     <!-- 用户信息头部 -->
     <view class="user-info" @click="navigateToUserProfile">
       <view class="info-left">
-        <image class="avatar" :src="userInfo.avatar"></image>
+        <image class="avatar" :src="user?.avatar"></image>
         <view class="user-detail">
           <text class="username">{{ user?.name }}</text>
           <text class="wechat-id">微信号：{{ userInfo.wechatId }}</text>
@@ -13,11 +13,10 @@
         <uni-icons type="arrowright" size="20" color="#666"></uni-icons>
       </view>
     </view>
-    {{JSON.stringify(chatStore)}}
     <!-- 功能列表 -->
     <uni-list class="menu-list">
       <uni-list-item
-          title="支付"
+          title="订单"
           showArrow
           thumb="/static/icons/pay.png"
           thumb-size="20"
@@ -77,13 +76,14 @@ export default {
       userInfo: {
         avatar: 'https://wx3.sinaimg.cn/mw690/006i0nC8ly1hquk6owrwoj31o01o0qs9.jpg',
         nickname: '微信用户',
-        wechatId: 'wxid_123456789',
+        wechatId: 'id_743616453',
       }
     }
   },
   async onLoad(options) {
     //调用云函数
-    //云函数代替http
+    //自研云函数代替http
+    //表面前端操作数据库，其实是云端操作
     let u=new User()
     let rsp=await u.getById(uni.getStorageSync('uid'))
     this.user=rsp
