@@ -1,9 +1,10 @@
-import {initBase} from "./Base.ts";
 import {Auth} from "./jwt.ts";
-
+import {parseXml} from "./pay.ts";
+import {Order} from "../api/Order.ts";
+import {getsql} from "./Base.ts";
+import {User} from "../api/User.ts";
 let asyncLocalStorage = new (require('async_hooks').AsyncLocalStorage)()
-
-function ctx(k: 'req' | 'session' | 'userId'): Request | any {
+function ctx(k: 'req' | 'session' | 'uid'): Request | any {
     if (k == 'req') {
         return asyncLocalStorage.getStore()[k] as Request
     }
@@ -63,9 +64,7 @@ export class Oapi {
         this.plugin.push(...pligins)
     }
     async run() {
-        initBase()
         let classMap = {}
-
         async function getObj(clazz: string, json: any) {
             //@ts-ignore
             if (!classMap[clazz]) {
@@ -91,7 +90,7 @@ export class Oapi {
                     const file = formdata.get('file');
                     if (!file) throw new Error('Must upload a profile picture.');
                     //await Bun.write(`src/static/${file['name']}`, file)
-                    return new Response('http://127.0.0.1:3000/static/ZLCGY2fCEGcp79f38e404f6984006610d035c448fcc8.jpg')
+                    return new Response('http://chenmeijia.top/static/logo.png')
                 }
             },
             //routes: routeMap,
@@ -105,13 +104,46 @@ export class Oapi {
                             return; // do not return a Response
                         }
                     }
+                    if (path === "/Order/cb") {
+                        let r=await parseXml(await req.text())
+                        console.log('cb:-------',r.out_trade_no)
+                        let o=new Order()
+                        o.status=1n
+                        let sql=getsql()
+                        await sql`update "Order" set status=1 where out_trade_no=${r.out_trade_no}`
+                        //let newObj=await o.update`out_trade_no=${r.out_trade_no}`
+                        //console.log('new obj:',newObj)
+                        // 返回成功响应
+                        return new Response(
+                            '<xml><return_code><![CDATA[SUCCESS]]></return_code></xml>',
+                            {headers: {'Content-Type': 'application/xml'}}
+                        );
+                    }
+                    if (path === "/Order/cbRecharge") {
+                        let r=await parseXml(await req.text())
+                        console.log('cbRecharge:-------',r.out_trade_no)
+                        let o=new Order()
+                        o.status=1n
+                        let sql=getsql()
+                        let [o1]=await sql`update "Order" set status=1 where out_trade_no=${r.out_trade_no} RETURNING *`
+
+                        let u=new User()
+                        let u1=await u.getById(o1.uid)
+                        u.balance=parseFloat(u1.balance)+parseFloat(o1.total)
+                        await u.updateById(u1.id)
+                        // 返回成功响应
+                        return new Response(
+                            '<xml><return_code><![CDATA[SUCCESS]]></return_code></xml>',
+                            {headers: {'Content-Type': 'application/xml'}}
+                        );
+                    }
                     if (req.method != 'POST') {//仅支持post json，非post请写在routes
                         return new Response('Not POST', {status: 500,})
                     }
                     let json = await req.json()
                     const [_, clazz, fn] = path.split('/')
                     let obj = await getObj(clazz, json.attr)//大小写都可以,json.atrr
-                    let whiteList = ['/User/login']
+                    let whiteList = ['/User/login','/User/cb','/User/cbRecharge']
                     let payload
                     if (!whiteList.includes(path)) {
                         let auth = new Auth('asfdsf')
@@ -121,7 +153,7 @@ export class Oapi {
                     }
                     //@ts-ignore
                     let rsp = null
-                    await asyncLocalStorage.run({rid: Date.now(), uid: payload, req: req}, async () => {
+                    await asyncLocalStorage.run({rid: Date.now(), uid: payload?.uid||0, req: req}, async () => {
                         rsp = Response.json(await obj[fn](...json.args))
                     })
                     rsp.headers.set('Access-Control-Allow-Origin', '*');
@@ -129,6 +161,7 @@ export class Oapi {
                     rsp.headers.set('Access-Control-Allow-Headers', '*');
                     return rsp;//成功返回云函数结果，失败抛出异常,json.args
                 } catch (e) {
+                    console.log(e)
                     return new Response(e.message || e, {
                         status: 500, headers: {
                             'Access-Control-Allow-Origin': '*',
@@ -144,7 +177,7 @@ export class Oapi {
                     const msg = `${ws.data.uid} has been received`;
                     console.log(msg)
                     ws.subscribe(`${ws.data.uid}`);
-                    ws.send(JSON.stringify({msg: msg}))
+                    //ws.send(JSON.stringify({msg: msg}))
                 },
                 message(ws, message) {
                     console.log(message)

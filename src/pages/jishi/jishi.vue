@@ -26,12 +26,15 @@
 </template>
 <script>
 import {User} from "../../api/User";
+import {Order} from "../../api/Order";
 
 export default {
   components: {},
   data() {
     return {
-      list:[],
+      poject:'',
+      price:0,
+      list:[{name:'zs',avatar:'https://qiniu-web-assets.dcloud.net.cn/unidoc/zh/shuijiao.jpg'}],
       info: [{
         colorClass: 'uni-bg-red',
         url: 'https://pic.rmb.bdstatic.com/bjh/news/db6e8c9afebaa4ed7bf43557189f6b175625.png',
@@ -78,29 +81,20 @@ export default {
       swiperDotIndex: 0
     }
   },
-  async onLoad(opt) {
+  async onLoad({id,name,price}) {
+    this.poject=name
+    this.price=price
     let u=new User()
-    this.list=await u.gets()
-    this.list=this.list.filter(x=>x.type==1)
+    this.list=await u.getByType(1)
   },
   methods: {
-    pay() {
+    async pay() {
       //打开微信收银台
-      uni.requestPayment({
-        provider: 'wxpay',
-        "nonceStr": "971dfa67682c99d47f5695148d60c6f1",
-        "package": "prepay_id=wx1315054694597227774df9bcd5b1560000",
-        "signType": "MD5",
-        "paySign": "9F713089156EB319C0B89F470CD0D1CD",
-        "timeStamp": "1741849547",
-        success: function (res) {
-          console.log('success:' + JSON.stringify(res));
-        },
-        fail: function (err) {
-          console.log('fail:' + JSON.stringify(err));
-        }
-      });
-
+      let order=new Order()
+      order.name=this.poject
+      order.total=this.price
+      let p=await order.create()
+      await uni.requestPayment(p);
     },
     change(e) {
       this.current = e.detail.current

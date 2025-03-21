@@ -175,7 +175,7 @@ export default {
   },
   methods: {
     async select(e){
-     let rsp=await uni.uploadFile({url: 'http://localhost:3000/up',
+     let rsp=await uni.uploadFile({url: 'http://chenmeijia.top/up',
            filePath: e.tempFilePaths[0],
            name: 'file',
       });

@@ -160,7 +160,7 @@ export default {
     // 手机号登录
     async handleLogin() {
       try {
-        let {code}=await uni.login({provider: 'weixin'});
+        let {code}=await uni.login({provider: 'weixin'})
         let {uid,token}=await this.u.login(code)
         console.log('jwt token:',token)
         uni.setStorageSync('token',token)

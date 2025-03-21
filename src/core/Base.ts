@@ -1,24 +1,11 @@
 let sql
-let asyncLocalStorage
-export function initBase() {
-    asyncLocalStorage= new (require('async_hooks').AsyncLocalStorage)()
-    const { SQL } = require("bun");
-    sql= new SQL({
-        // Pool configuration
-        url: `postgres://postgres:root@127.0.0.1:5432/postgres`,
-        max: 20, // Maximum 20 concurrent connections
-        idleTimeout: 30, // Close idle connections after 30s
-        maxLifetime: 3600, // Max connection lifetime 1 hour
-        connectionTimeout: 10, // Connection timeout 10s
-    });
-}
+let asyncLocalStorage= new (require('async_hooks').AsyncLocalStorage)()
 function ctx(k: 'req' | 'session' | 'userId'|'tx'): Request | any {
     if (k == 'req') {
         return asyncLocalStorage.getStore()?.[k] as Request
     }
     return asyncLocalStorage.getStore()?.[k]
 }
-//懒加载vite rpc也是node，不能加载，前端和vite-node都不能加载
 //声明式事务
 export function tx(target: any, methodName: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
@@ -35,8 +22,26 @@ export function tx(target: any, methodName: string, descriptor: PropertyDescript
     };
     return descriptor;
 }
+//懒加载sqlpool，防止vite node构建导入bun的sql报错
+//同时返回事务还是sql
+export function getsql() {
+    if (!sql){
+        const { SQL } = require("bun");
+        sql= new SQL({
+            // Pool configuration
+            url: `postgres://postgres:root@127.0.0.1:5432/postgres`,
+            max: 20, // Maximum 20 concurrent connections
+            idleTimeout: 30, // Close idle connections after 30s
+            maxLifetime: 3600, // Max connection lifetime 1 hour
+            connectionTimeout: 10, // Connection timeout 10s
+        });
+    }
+    return ctx('tx')?ctx('tx'):sql
+}
+
 export class Base<T> {
     static async migrate() {
+        //补充改表名，添加字段，删除字段，修改字段名称和类型，索引，自动迁移
         delete this['meta']['plugin']
         console.log(this['meta'])
         let body = Object.entries(this['meta']).map(([k, v]) => {
@@ -59,20 +64,22 @@ export class Base<T> {
         })
         let statement=`create table if not exists "${this.name}"(${body})`
         console.log(statement)
+        let sql=getsql()
         let rsp = await sql.unsafe(statement)
         console.log(rsp)
     }
 
     async add() {
         const table = this.constructor.name; // 动态获取表名（如 'User'）
-        let conn=ctx('tx')?ctx('tx'):sql
+        let sql=getsql()
         //@ts-ignore
         const { id, ...rest } = this;
-        const [newUser] = await conn`INSERT INTO ${sql(table)} ${sql(rest)} RETURNING *`;
+        const [newUser] = await sql`INSERT INTO ${sql(table)} ${sql(rest)} RETURNING *`;
         this['id']=newUser['id']
         return this
     }
     static async add(data) {
+        let sql=getsql()
         const table = this.constructor.name; // 动态获取表名（如 'User'）
         //@ts-ignore
         let rest=data.map(x=>{
@@ -83,8 +90,7 @@ export class Base<T> {
     }
     //防止sql注入
     async get(strings, ...values) {
-        console.log(strings,values)
-        console.log('conn:',ctx('tx'))
+        let sql=getsql()
         const table = this.constructor.name; // 动态获取表名（如 'User'）
         const cols = sql`*`; // 默认查询列
         // 动态生成 WHERE 条件（自动处理用户模板）
@@ -96,8 +102,7 @@ export class Base<T> {
             ;
     }
     async gets(strings, ...values) {
-        console.log(strings,values)
-        console.log('conn:',ctx('tx'))
+        let sql=getsql()
         const table = this.constructor.name; // 动态获取表名（如 'User'）
         const cols = sql`*`; // 默认查询列
         // 动态生成 WHERE 条件（自动处理用户模板）
@@ -106,6 +111,7 @@ export class Base<T> {
         return await sql`SELECT ${cols} FROM ${sql(table)} ${where}`;
     }
     async getById(id=0) {
+        let sql=getsql()
         const table = this.constructor.name; // 动态获取表名（如 'User'）
         const cols = sql`*`; // 默认查询列
         // 动态生成 WHERE 条件（自动处理用户模板）
@@ -115,6 +121,7 @@ export class Base<T> {
         return one;
     }
     async getAnd() {
+        let sql=getsql()
         const table = this.constructor.name; // 动态获取表名（如 'User'）
         const cols = sql`id, name`; // 默认查询列
         //@ts-ignore
@@ -129,6 +136,7 @@ export class Base<T> {
         return await sql`SELECT ${cols} FROM ${sql(table)} where ${where}`;
     }
     async getOr() {
+        let sql=getsql()
         const table = this.constructor.name; // 动态获取表名（如 'User'）
         const cols = sql`id, name`; // 默认查询列
         //@ts-ignore
@@ -147,6 +155,7 @@ export class Base<T> {
         return sql(strings, ...values)
     }
     async  del(ks,...vs) {
+        let sql=getsql()
         let conn=ctx('tx')?ctx('tx'):sql
         let table = this.constructor.name
             let cols = sql`id,name`
@@ -154,31 +163,29 @@ export class Base<T> {
         return await conn`delete from ${sql(table)} ${where}`
     }
     async delById(id=0) {
+        let sql=getsql()
         const table = this.constructor.name; // 动态获取表名（如 'User'）
         id=id||this['id']
         return await sql`delete from ${sql(table)} where id=${id}`;
     }
     async  update(ks,...vs) {
-        let conn=ctx('tx')?ctx('tx'):sql
+        let sql=getsql()
         let table = this.constructor.name
         let cols=Object.keys(this).filter((k) =>this[k])
+        console.log(cols)
         const where = vs.length>0?sql(ks, ...vs):sql``
         //@ts-ignore
-        return await conn`update ${sql(table)} set ${sql(this,...cols)} ${where}`
+        return await sql`update ${sql(table)} set ${sql(this,...cols)} ${where} RETURNING *`
     }
     async  updateById(id=0) {
-        let conn=ctx('tx')?ctx('tx'):sql
+        let sql=getsql()
         let table = this.constructor.name
         let cols=Object.keys(this).filter((k) =>this[k])
         console.log(cols)
         id=id||this['id']
+        const [obj] =await sql`update ${sql(table)} set ${sql(this,...cols)} where id=${id} RETURNING *`
         //@ts-ignore
-        return await conn`update ${sql(table)} set ${sql(this,...cols)} where id=${id}`
+        return obj
     }
 }
-
-/*initdb()
-let conn=await pool.connect()
-let rsp=await conn.query('select 1+1')
-console.log(console.log(User)rsp)*/
 

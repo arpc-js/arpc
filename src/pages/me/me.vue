@@ -6,7 +6,7 @@
         <image class="avatar" :src="user?.avatar"></image>
         <view class="user-detail">
           <text class="username">{{ user?.name }}</text>
-          <text class="wechat-id">微信号：{{ userInfo.wechatId }}</text>
+          <text class="wechat-id">余额：{{ user?.balance }}</text>
         </view>
       </view>
       <view class="info-right">
@@ -15,49 +15,38 @@
     </view>
     <!-- 功能列表 -->
     <uni-list class="menu-list">
-      <uni-list-item
-          title="订单"
-          showArrow
-          thumb="/static/icons/pay.png"
-          thumb-size="20"
-      />
+     <navigator url='/pages/order/order'>
+       <uni-list-item
+           title="订单"
+           showArrow
+           thumb="/static/icons/pay.png"
+           thumb-size="20"
+       />
+     </navigator>
+      <navigator url='/pages/recharge/recharge'>
+        <uni-list-item
+            title="充值"
+            showArrow
+            thumb="/static/icons/pay.png"
+            thumb-size="20"
+        />
+      </navigator>
+      <navigator url='/pages/recharge/recharge'>
+        <uni-list-item
+            title="vip"
+            showArrow
+            thumb="/static/icons/pay.png"
+            thumb-size="20"
+        />
+      </navigator>
     </uni-list>
 
-    <uni-list class="menu-list">
-      <uni-list-item
-          title="收藏"
-          showArrow
-          thumb="/static/icons/favorite.png"
-          thumb-size="20"
-      />
-      <uni-list-item
-          title="相册"
-          showArrow
-          thumb="/static/icons/album.png"
-          thumb-size="20"
-      />
-      <uni-list-item
-          title="卡包"
-          showArrow
-          thumb="/static/icons/card.png"
-          thumb-size="20"
-      />
-      <uni-list-item
-          title="表情"
-          showArrow
-          thumb="/static/icons/emoji.png"
-          thumb-size="20"
-      />
-    </uni-list>
-
-    <uni-list class="menu-list">
-      <uni-list-item
-          title="设置"
-          showArrow
-          thumb="/static/icons/settings.png"
-          thumb-size="20"
-      />
-    </uni-list>
+    <uni-list-item
+        title="设置"
+        showArrow
+        thumb="/static/icons/settings.png"
+        thumb-size="20"
+    />
 
     <!-- 退出登录 -->
     <view class="logout" @click="handleLogout">
@@ -101,7 +90,9 @@ export default {
         content: '确定要退出登录吗？',
         success: (res) => {
           if (res.confirm) {
-            // 执行退出登录逻辑
+            uni.setStorageSync('uid','')
+            uni.setStorageSync('token','')
+            uni.reLaunch({  url: '/pages/login/login' })
           }
         }
       })

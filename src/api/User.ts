@@ -5,6 +5,7 @@ export class User extends Base<User>{
     openid:string
     name:string
     type:bigint
+    balance:number
     info
     pwd:string
     phone:string;
@@ -13,7 +14,11 @@ export class User extends Base<User>{
     created_at:Date
     updated_at:Date
     //定义的登陆云函数
+    async getByType(tp){
+        return await this.gets`type=${tp}`
+    }
     async login(code){
+        console.log(this)
         //code换成openid
         const wxUrl = `https://api.weixin.qq.com/sns/jscode2session?appid=${'wx4fca4bfde91470b0'}&secret=${'c63f864448667f548248ebcd638121ac'}&js_code=${code}&grant_type=authorization_code`;
         let rsp=await fetch(wxUrl)
@@ -21,7 +26,6 @@ export class User extends Base<User>{
         console.log(openid)
         //查询用户
         let u=await this.get`openid=${openid}`
-        console.log(u)
         //新用户自动注册
         if (!u){
             this.openid=openid

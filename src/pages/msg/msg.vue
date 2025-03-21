@@ -1,51 +1,175 @@
 <template>
-  <uni-list>
-    <uni-list :border="true">
-      <!-- 显示圆形头像 -->
-      <uni-list-chat v-for="(v, k) in chatStore.unreadMap" :avatar-circle="true" :title="v.name" :avatar="v.icon" :note="v.msg" :time="v.time" ></uni-list-chat>
+  <view class="container">
+    <!-- 自定义消息列表 -->
+    <view class="message-list">
+      <navigator
+          v-for="(item, uid) in chatStore.unreadMap"
+          :key="uid"
+          :url="`/pages/chat/chat?id=${uid}`"
+          class="message-item"
+          hover-class="message-item-hover"
+      >
+        <!-- 头像 -->
+        <image class="avatar" :src="item.icon || defaultAvatar"></image>
 
-    </uni-list>
-  </uni-list>
+        <!-- 消息主体 -->
+        <view class="content">
+          <!-- 标题行 -->
+          <view class="title-line">
+            <text class="name">{{ item.name }}</text>
+            <text class="time">{{ formatTime(item.time) }}</text>
+          </view>
 
+          <!-- 消息预览 -->
+          <view class="preview-line">
+            <text class="message">{{ item.msg }}</text>
+            <view v-if="item.count > 0" class="badge">
+              {{ item.count > 99 ? '99+' : item.count }}
+            </view>
+          </view>
+        </view>
+      </navigator>
+      <navigator
+          v-for="(item, uid) in chatStore.unreadMap"
+          :key="uid"
+          :url="`/pages/chat/chat?id=${uid}`"
+          class="message-item"
+          hover-class="message-item-hover"
+      >
+        <!-- 头像 -->
+        <image class="avatar" :src="item.icon || defaultAvatar"></image>
 
+        <!-- 消息主体 -->
+        <view class="content">
+          <!-- 标题行 -->
+          <view class="title-line">
+            <text class="name">{{ item.name }}</text>
+            <text class="time">{{ formatTime(item.time) }}</text>
+          </view>
+
+          <!-- 消息预览 -->
+          <view class="preview-line">
+            <text class="message">{{ item.msg }}</text>
+            <view v-if="item.count > 0" class="badge">
+              {{ item.count > 99 ? '99+' : item.count }}
+            </view>
+          </view>
+        </view>
+      </navigator>
+    </view>
+  </view>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { getCurrentInstance,ref } from 'vue';
+import { computed, getCurrentInstance } from 'vue';
+
 const instance = getCurrentInstance();
 const chatStore = instance?.appContext.config.globalProperties.chatStore;
-// 计算属性
+
+// 默认头像
+const defaultAvatar = 'https://qiniu-web-assets.dcloud.net.cn/unidoc/zh/unicloudlogo.png'
+
+// 时间格式化方法
+const formatTime = (timestamp: number) => {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+};
+
+// 未读消息总数
 const totalUnread = computed(() => {
-  return Object.keys(chatStore.unreadMap).reduce((acc,  key) => {
-    return acc + (chatStore.unreadMap[key]?.count  || 0);
-  }, 0);
+  return Object.values(chatStore.unreadMap).reduce(
+      (acc: number, item: any) => acc + (item?.count || 0),
+      0
+  );
 });
-let avatarList=ref([{
-  url: 'https://qiniu-web-assets.dcloud.net.cn/unidoc/zh/unicloudlogo.png'
-}, {
-  url: 'https://qiniu-web-assets.dcloud.net.cn/unidoc/zh/unicloudlogo.png'
-}, {
-  url: 'https://qiniu-web-assets.dcloud.net.cn/unidoc/zh/unicloudlogo.png'
-}])
 </script>
 
-<style>
+<style lang="scss">
+.container {
+  background-color: #f8f8f8;
+  min-height: 100vh;
+}
 
-.chat-custom-right {
-  flex: 1;
-  /* #ifndef APP-NVUE */
+.message-list {
+  padding: 10rpx 20rpx;
+}
+
+.message-item {
   display: flex;
-  /* #endif */
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
+  padding: 20rpx;
+  background-color: #fff;
+  border-radius: 12rpx;
+  margin-bottom: 1rpx;
+  box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.05);
+
+  .avatar {
+    width: 100rpx;
+    height: 100rpx;
+    border-radius: 8rpx;
+    margin-right: 20rpx;
+    flex-shrink: 0;
+  }
+
+  .content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .title-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12rpx;
+
+    .name {
+      font-size: 34rpx;
+      color: #333;
+      font-weight: 520;
+      max-width: 400rpx;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .time {
+      font-size: 24rpx;
+      color: #999;
+    }
+  }
+
+  .preview-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .message {
+      font-size: 28rpx;
+      color: #666;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-right: 20rpx;
+    }
+
+    .badge {
+      background-color: #f56c6c;
+      color: #fff;
+      font-size: 24rpx;
+      min-width: 36rpx;
+      height: 36rpx;
+      line-height: 36rpx;
+      border-radius: 18rpx;
+      text-align: center;
+      padding: 0 10rpx;
+    }
+  }
 }
 
-.chat-custom-text {
-  font-size: 12px;
-  color: #999;
+.message-item-hover {
+  background-color: #f5f5f5;
+  opacity: 0.9;
 }
-
-
 </style>

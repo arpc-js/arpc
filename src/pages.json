@@ -86,6 +86,22 @@
     "enablePullDownRefresh": true
   }
 }
+      ,
+      {
+  "path": "pages/order/order",
+  "style": {
+    "navigationBarTitleText": "",
+    "enablePullDownRefresh": true
+  }
+}
+      ,
+      {
+  "path": "pages/recharge/recharge",
+  "style": {
+    "navigationBarTitleText": "",
+    "enablePullDownRefresh": true
+  }
+}
     ],
 	"globalStyle": {
 		"navigationBarTextStyle": "black",
