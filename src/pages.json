@@ -102,6 +102,14 @@
     "enablePullDownRefresh": true
   }
 }
+      ,
+      {
+  "path": "pages/pay/pay",
+  "style": {
+    "navigationBarTitleText": "",
+    "enablePullDownRefresh": true
+  }
+}
     ],
 	"globalStyle": {
 		"navigationBarTextStyle": "black",

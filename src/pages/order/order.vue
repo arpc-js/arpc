@@ -15,7 +15,18 @@
               <text class="detail-label">订单金额：</text>
               <text class="detail-value price">¥{{item.total}}</text>
             </view>
-
+            <view class="detail-item">
+              <text class="detail-label">地址：</text>
+              <text class="detail-value price">{{item?.info?.address}}</text>
+            </view>
+            <view class="detail-item">
+              <text class="detail-label">电话：</text>
+              <text class="detail-value price">{{item?.info?.phone}}</text>
+            </view>
+            <view class="detail-item">
+              <text class="detail-label">距离：</text>
+              <text class="detail-value price">{{item?.info?.distance}}km</text>
+            </view>
             <view class="detail-item">
               <text class="detail-label">创建时间：</text>
               <text class="detail-value time">{{formatTime(item.created_at)}}</text>

@@ -29,33 +29,6 @@
           </view>
         </view>
       </navigator>
-      <navigator
-          v-for="(item, uid) in chatStore.unreadMap"
-          :key="uid"
-          :url="`/pages/chat/chat?id=${uid}`"
-          class="message-item"
-          hover-class="message-item-hover"
-      >
-        <!-- 头像 -->
-        <image class="avatar" :src="item.icon || defaultAvatar"></image>
-
-        <!-- 消息主体 -->
-        <view class="content">
-          <!-- 标题行 -->
-          <view class="title-line">
-            <text class="name">{{ item.name }}</text>
-            <text class="time">{{ formatTime(item.time) }}</text>
-          </view>
-
-          <!-- 消息预览 -->
-          <view class="preview-line">
-            <text class="message">{{ item.msg }}</text>
-            <view v-if="item.count > 0" class="badge">
-              {{ item.count > 99 ? '99+' : item.count }}
-            </view>
-          </view>
-        </view>
-      </navigator>
     </view>
   </view>
 </template>

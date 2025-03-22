@@ -7,16 +7,23 @@
                  class="service-img"
                  mode="aspectFill"></image>
           <view class="content-wrapper">
-            <view class="title">{{item.name}}</view>
+            <view class="title">{{ item.name }}</view>
             <view class="duration-badge">
               <uni-badge text="6年经验" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
               <uni-badge text="29岁" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
             </view>
             <view class="price" style="display: flex">
-              <text class="original-price">100人关注</text>
-<!--              <text class="original-price">34好评</text>-->
-              <button @click="pay()" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">下单</button>
-              <button @click="to(`/pages/chat/chat?id=${item.id}`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">聊天</button>
+              <text class="original-price">{{item.distance}}km</text>
+              <!--              <text class="original-price">34好评</text>-->
+              <button
+                  @click="to(`/pages/pay/pay?id=${item.id}&project=${this.poject}&price=${this.price}&distance=${item.distance}`)"
+                  type="default"
+                  style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">下单
+              </button>
+              <button @click="to(`/pages/chat/chat?id=${item.id}`)" type="default"
+                      style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">
+                聊天
+              </button>
             </view>
           </view>
         </view>
@@ -32,9 +39,10 @@ export default {
   components: {},
   data() {
     return {
-      poject:'',
-      price:0,
-      list:[{name:'zs',avatar:'https://qiniu-web-assets.dcloud.net.cn/unidoc/zh/shuijiao.jpg'}],
+      distance: 0,
+      poject: '',
+      price: 0,
+      list: [{name: 'zs', avatar: 'https://qiniu-web-assets.dcloud.net.cn/unidoc/zh/shuijiao.jpg'}],
       info: [{
         colorClass: 'uni-bg-red',
         url: 'https://pic.rmb.bdstatic.com/bjh/news/db6e8c9afebaa4ed7bf43557189f6b175625.png',
@@ -81,19 +89,23 @@ export default {
       swiperDotIndex: 0
     }
   },
-  async onLoad({id,name,price}) {
-    this.poject=name
-    this.price=price
-    let u=new User()
-    this.list=await u.getByType(1)
+  async onLoad({id, name, price}) {
+    this.poject = name
+    this.price = price
+    let u = new User()
+    this.list = await u.getByType(1)
+    this.list.forEach(x=>{
+      x.distance=this.getDistance(121.4949, 31.2416, x.location.longitude, x.location.latitude)
+      x.distance=x.distance.toFixed(2)
+    })
   },
   methods: {
     async pay() {
       //打开微信收银台
-      let order=new Order()
-      order.name=this.poject
-      order.total=this.price
-      let p=await order.create()
+      let order = new Order()
+      order.name = this.poject
+      order.total = this.price
+      let p = await order.create()
       await uni.requestPayment(p);
     },
     change(e) {
@@ -114,6 +126,32 @@ export default {
     },
     onBanner(index) {
       console.log(22222, index);
+    },
+    getDistance(lng1, lat1, lng2, lat2, unit = 'K') {
+      // 角度转弧度
+      const rad = (degree) => degree * Math.PI / 180;
+      const radLat1 = rad(lat1);
+      const radLat2 = rad(lat2);
+      const deltaLat = radLat2 - radLat1;
+      const deltaLng = rad(lng2) - rad(lng1);
+      // Haversine公式计算
+      const a = Math.sin(deltaLat / 2) ** 2
+          + Math.cos(radLat1) * Math.cos(radLat2)
+          * Math.sin(deltaLng / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      // 地球半径（单位：千米）
+      const R = 6371;
+      let distance = R * c;
+      // 单位转换
+      switch (unit.toUpperCase()) {
+        case 'M': // 米
+          distance *= 1000;
+          break;
+        case 'N': // 海里
+          distance *= 0.5399568;
+          break;
+      }
+      return distance;
     }
   }
 }
@@ -349,7 +387,7 @@ export default {
   padding: 24rpx;
   background: #fff;
   border-radius: 16rpx;
-  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
 }
 
 .service-img {
@@ -387,10 +425,11 @@ export default {
 }
 
 .original-price {
-  line-height:65rpx;
+  line-height: 65rpx;
   font-size: 20rpx;
   color: #999;
-  margin-left: 15rpx;}
+  margin-left: 15rpx;
+}
 </style>
 
 

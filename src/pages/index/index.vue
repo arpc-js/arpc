@@ -155,13 +155,6 @@ export default {
     //两行代码前后端通信
     let u=new User()
     let token=await u.get('2')
-
-/*    let {authSetting}=await uni.getSetting()
-    if (authSetting['scope.userLocation']) {
-      await uni.authorize({scope: 'scope.userLocation'})
-    }
-    let {longitude,latitude}=await uni.getLocation({type: 'gcj02'})
-    await uni.openLocation({latitude: latitude, longitude: longitude})*/
   },
   methods: {
     change(e) {

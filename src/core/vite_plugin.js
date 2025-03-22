@@ -56,6 +56,8 @@ function rpc_proxy(mode) {
                                 ${aa.join('\n')}
                             }
 `
+                code=code.replaceAll('_','')
+                console.log('code:',code)
                 return {
                     code: code,
                     map: null // 不生成sourcemap

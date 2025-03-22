@@ -44,10 +44,10 @@
         <image class="action-icon" src="/static/video-call.png"></image>
         <text>视频</text>
       </view>
-      <view class="action-item" @click="handleSendLocation">
-        <image class="action-icon" src="/static/location.png"></image>
+<!--      <view class="action-item" @click="handleSendLocation">
+        <image @click="sendMessage({latitude: 31.033270128038193, longitude: 121.75690321180555})" class="action-icon" src="/static/location.png"></image>
         <text>位置</text>
-      </view>
+      </view>-->
     </view>
 
     <!-- 输入区域 -->

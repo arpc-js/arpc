@@ -4,7 +4,7 @@ function ctx(k: 'req' | 'session' | 'userId'|'tx'): Request | any {
     if (k == 'req') {
         return asyncLocalStorage.getStore()?.[k] as Request
     }
-    return asyncLocalStorage.getStore()?.[k]
+    return asyncLocalhhhhStorage.getStore()?.[k]
 }
 //声明式事务
 export function tx(target: any, methodName: string, descriptor: PropertyDescriptor) {
@@ -159,7 +159,7 @@ export class Base<T> {
         let conn=ctx('tx')?ctx('tx'):sql
         let table = this.constructor.name
             let cols = sql`id,name`
-        const where = sql(ks, ...vs);
+        const where = vs.length > 0 ? sql`where ${sql(ks, ...vs)}` : sql``;
         return await conn`delete from ${sql(table)} ${where}`
     }
     async delById(id=0) {
@@ -171,16 +171,19 @@ export class Base<T> {
     async  update(ks,...vs) {
         let sql=getsql()
         let table = this.constructor.name
-        let cols=Object.keys(this).filter((k) =>this[k])
-        console.log(cols)
-        const where = vs.length>0?sql(ks, ...vs):sql``
+        console.log('this:',this)
+        //undefined才是未赋值，null，0，空字符串都是有值，0也可以是一种状态
+        let cols=Object.keys(this).filter((k) =>this[k]!=undefined)
+        console.log('cols:',cols)
+        const where = vs.length > 0 ? sql`where ${sql(ks, ...vs)}` : sql``;
+        console.log('where:',where)
         //@ts-ignore
         return await sql`update ${sql(table)} set ${sql(this,...cols)} ${where} RETURNING *`
     }
     async  updateById(id=0) {
         let sql=getsql()
         let table = this.constructor.name
-        let cols=Object.keys(this).filter((k) =>this[k])
+        let cols=Object.keys(this).filter((k) =>this[k]!=undefined)
         console.log(cols)
         id=id||this['id']
         const [obj] =await sql`update ${sql(table)} set ${sql(this,...cols)} where id=${id} RETURNING *`

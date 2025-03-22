@@ -70,13 +70,22 @@ export default {
     }
   },
   async onLoad(options) {
-    //调用云函数
-    //自研云函数代替http
-    //表面前端操作数据库，其实是云端操作
     let u=new User()
     let rsp=await u.getById(uni.getStorageSync('uid'))
     this.user=rsp
     console.log(rsp)
+    let {authSetting}=await uni.getSetting()
+    if (authSetting['scope.userLocation']) {
+      await uni.authorize({scope: 'scope.userLocation'})
+    }
+    let {longitude,latitude}=await uni.getLocation({type: 'gcj02'})
+    u.location={longitude,latitude}
+    await u.updateById(uni.getStorageSync('uid'))
+    //await uni.openLocation({latitude: latitude, longitude: longitude})
+    //调用云函数
+    //自研云函数代替http
+    //表面前端操作数据库，其实是云端操作
+
   },
   methods: {
     navigateToUserProfile() {

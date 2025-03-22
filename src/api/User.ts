@@ -6,6 +6,7 @@ export class User extends Base<User>{
     name:string
     type:bigint
     balance:number
+    location
     info
     pwd:string
     phone:string;
