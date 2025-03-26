@@ -10,100 +10,38 @@
     </uni-swiper-dot>
     <uni-section title="全部项目" type="line">
       <uni-list>
-        <view class="service-card">
-          <image src="https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405"
+        <view  class="service-card" v-for="{id,src,name,timespan,price,old_price,sells,info_src} in list">
+          <image :src="src"
+                 @click="to(`/pages/index/spu_info?id=${id}&url=${encodeURIComponent(info_src)}`)"
                  class="service-img"
                  mode="aspectFill"></image>
-          <view class="content-wrapper">
-            <view class="title">精油开背</view>
-
+          <view class="content-wrapper" @click="to(`/pages/index/spu_info?id=${id}&url=${encodeURIComponent(info_src)}`)">
+            <view class="title">{{name}}</view>
             <view class="duration-badge">
-              <uni-badge text="60分钟"
+              <uni-badge :text="timespan+'分钟'"
                          custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
             </view>
-
-            <view class="sales">已售1000份</view>
-
+            <view class="sales">已售{{sells}}份</view>
             <view class="price" style="display: flex">
-              <text class="current-price">￥219</text>
-              <text class="original-price">￥399</text>
-              <button @click="to(`/pages/jishi/jishi?id=1&name=精油开背&price=1`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">选择项目</button>
+              <text class="current-price">￥{{price}}</text>
+              <text class="original-price">￥{{old_price}}</text>
+              <button @click.stop="to(`/pages/jishi/jishi?id=${id}&name=${name}&price=${price}&src=${encodeURIComponent(src)}`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">选择项目</button>
             </view>
           </view>
         </view>
-        <view class="service-card">
-          <image src="https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405"
-                 class="service-img"
-                 mode="aspectFill"></image>
-          <view class="content-wrapper">
-            <view class="title">泰式spa</view>
 
-            <view class="duration-badge">
-              <uni-badge text="60分钟"
-                         custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
-            </view>
-
-            <view class="sales">已售1000份</view>
-
-            <view class="price" style="display: flex">
-              <text class="current-price">￥219</text>
-              <text class="original-price">￥399</text>
-              <button @click="to(`/pages/jishi/jishi?id=1`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">选择项目</button>
-            </view>
-          </view>
-        </view>
-        <view class="service-card">
-          <image src="https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405"
-                 class="service-img"
-                 mode="aspectFill"></image>
-          <view class="content-wrapper">
-            <view class="title">古法按摩</view>
-
-            <view class="duration-badge">
-              <uni-badge text="60分钟"
-                         custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
-            </view>
-
-            <view class="sales">已售1000份</view>
-
-            <view class="price" style="display: flex">
-              <text class="current-price">￥219</text>
-              <text class="original-price">￥399</text>
-              <button @click="to(`/pages/jishi/jishi?id=1`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">选择项目</button>
-            </view>
-          </view>
-        </view>
-        <view class="service-card">
-          <image src="https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405"
-                 class="service-img"
-                 mode="aspectFill"></image>
-          <view class="content-wrapper">
-            <view class="title">韩式采耳</view>
-
-            <view class="duration-badge">
-              <uni-badge text="60分钟"
-                         custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
-            </view>
-
-            <view class="sales">已售10000份</view>
-
-            <view class="price" style="display: flex">
-              <text class="current-price">￥219</text>
-              <text class="original-price">￥399</text>
-              <button @click="to(`/pages/jishi/jishi?id=1`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">选择项目</button>
-            </view>
-          </view>
-        </view>
       </uni-list>
     </uni-section>
   </view>
 </template>
 <script>
 import {User} from "../../api/User";
+import {Spu} from "../../api/Spu";
 export default {
   components: {},
   data() {
     return {
+      list:[],
       info: [{
         colorClass: 'uni-bg-red',
         url: 'https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405',
@@ -152,9 +90,14 @@ export default {
   },
   async onLoad(options) {
     console.log('chatStore:',this.chatStore)
+    let spu=new Spu()
+    this.list=await spu.gets()
     //两行代码前后端通信
     let u=new User()
-    let token=await u.get('2')
+    let token=await u.get('2')//.catch(e=>uni.reLaunch({  url: '/pages/login/login' }))
+    console.log('token',token)
+    //能访问数据说明用户已经登录，连接websocket
+
   },
   methods: {
     change(e) {

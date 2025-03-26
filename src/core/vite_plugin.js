@@ -39,7 +39,7 @@ function rpc_proxy(mode) {
                 }else {
                     aa=fns.map(x=>`async ${x}(...args){
         const response = await uni.request({
-            url: 'http://chenmeijia.top/${name}/${x}',
+            url: 'https://chenmeijia.top/${name}/${x}',
             method: 'POST',
             header:{'Authorization':uni.getStorageSync('token')},
             data: {attr:this,args:args}

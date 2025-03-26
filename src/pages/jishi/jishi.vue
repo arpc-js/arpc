@@ -1,5 +1,18 @@
 <template>
   <view class="content">
+    <!-- 新增搜索栏 -->
+    <view class="search-bar">
+      <input
+          class="search-input"
+          v-model="searchName"
+          placeholder="输入技师名称"
+          @confirm="search"
+      />
+      <button
+          class="search-btn"
+          @click="search"
+      >搜索</button>
+    </view>
     <uni-section title="选择工人" type="line">
       <uni-list>
         <view class="service-card" v-for="(item, index) in list">
@@ -16,11 +29,11 @@
               <text class="original-price">{{item.distance}}km</text>
               <!--              <text class="original-price">34好评</text>-->
               <button
-                  @click="to(`/pages/pay/pay?id=${item.id}&project=${this.poject}&price=${this.price}&distance=${item.distance}`)"
+                  @click="to(`/pages/pay/pay?id=${item.id}&name=${item.name}&project=${this.poject}&price=${this.price}&distance=${item.distance}&src=${this.src}`)"
                   type="default"
                   style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">下单
               </button>
-              <button @click="to(`/pages/chat/chat?id=${item.id}`)" type="default"
+              <button @click="to(`/pages/chat/chat?id=${item.id}&name=${item.name}&avatar=${encodeURIComponent(item.avatar)}`)" type="default"
                       style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">
                 聊天
               </button>
@@ -39,10 +52,13 @@ export default {
   components: {},
   data() {
     return {
+      searchName: '', // 新增搜索关键词
+      originalList: [], // 新增原始数据备份
       distance: 0,
+      src: '',
       poject: '',
       price: 0,
-      list: [{name: 'zs', avatar: 'https://qiniu-web-assets.dcloud.net.cn/unidoc/zh/shuijiao.jpg'}],
+      list: [],
       info: [{
         colorClass: 'uni-bg-red',
         url: 'https://pic.rmb.bdstatic.com/bjh/news/db6e8c9afebaa4ed7bf43557189f6b175625.png',
@@ -89,17 +105,29 @@ export default {
       swiperDotIndex: 0
     }
   },
-  async onLoad({id, name, price}) {
+  async onLoad({id, name, price,src}) {
     this.poject = name
     this.price = price
+    this.src = src
     let u = new User()
     this.list = await u.getByType(1)
+    let loc=uni.getStorageSync('loc')
     this.list.forEach(x=>{
-      x.distance=this.getDistance(121.4949, 31.2416, x.location.longitude, x.location.latitude)
-      x.distance=x.distance.toFixed(2)
+      x.distance=this.getDistance(loc.longitude, loc.latitude, x.location.longitude, x.location.latitude)
+      x.distance=x.distance.toFixed(1)
     })
+    this.originalList = [...this.list] // 保存原始数
   },
   methods: {
+    async search() {
+      let u = new User()
+      this.list = await u.getByType(1,this.searchName)
+      let loc=uni.getStorageSync('loc')
+      this.list.forEach(x=>{
+        x.distance=this.getDistance(loc.longitude, loc.latitude, x.location.longitude, x.location.latitude)
+        x.distance=x.distance.toFixed(1)
+      })
+    },
     async pay() {
       //打开微信收银台
       let order = new Order()
@@ -429,6 +457,43 @@ export default {
   font-size: 20rpx;
   color: #999;
   margin-left: 15rpx;
+}
+/* 新增搜索栏样式 */
+.search-bar {
+  display: flex;
+  padding: 20rpx 30rpx;
+  background: #fff;
+  gap: 20rpx;
+  align-items: center;
+  border-bottom: 1rpx solid #eee;
+
+  .search-input {
+    flex: 1;
+    height: 70rpx;
+    padding: 0 30rpx;
+    background: #f5f5f5;
+    border-radius: 35rpx;
+    font-size: 28rpx;
+  }
+
+  .search-btn {
+    background: #4cd964;
+    color: #fff;
+    height: 70rpx;
+    line-height: 70rpx;
+    padding: 0 40rpx;
+    border-radius: 35rpx;
+    font-size: 28rpx;
+    margin: 0;
+
+    &::after {
+      border: none;
+    }
+
+    &:active {
+      background: #3ac852;
+    }
+  }
 }
 </style>
 

@@ -4,7 +4,7 @@ function ctx(k: 'req' | 'session' | 'userId'|'tx'): Request | any {
     if (k == 'req') {
         return asyncLocalStorage.getStore()?.[k] as Request
     }
-    return asyncLocalhhhhStorage.getStore()?.[k]
+    return asyncLocalStorage.getStore()?.[k]
 }
 //声明式事务
 export function tx(target: any, methodName: string, descriptor: PropertyDescriptor) {
@@ -108,7 +108,7 @@ export class Base<T> {
         // 动态生成 WHERE 条件（自动处理用户模板）
         const where = values.length > 0 ? sql`where ${sql(strings, ...values)}` : sql``;
         // 组合完整 SQL 并执行
-        return await sql`SELECT ${cols} FROM ${sql(table)} ${where}`;
+        return await sql`SELECT ${cols} FROM ${sql(table)} ${where} order by id desc`;
     }
     async getById(id=0) {
         let sql=getsql()

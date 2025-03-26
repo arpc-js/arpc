@@ -31,14 +31,7 @@
             thumb-size="20"
         />
       </navigator>
-      <navigator url='/pages/recharge/recharge'>
-        <uni-list-item
-            title="vip"
-            showArrow
-            thumb="/static/icons/pay.png"
-            thumb-size="20"
-        />
-      </navigator>
+
     </uni-list>
 
     <uni-list-item
@@ -49,6 +42,9 @@
     />
 
     <!-- 退出登录 -->
+    <view class="logout" @click="clearStorage">
+      <text class="logout-text">清缓存</text>
+    </view>
     <view class="logout" @click="handleLogout">
       <text class="logout-text">退出登录</text>
     </view>
@@ -73,13 +69,17 @@ export default {
     let u=new User()
     let rsp=await u.getById(uni.getStorageSync('uid'))
     this.user=rsp
+    uni.setStorageSync('avatar',this.user.avatar)
+    uni.setStorageSync('name',this.user.name)
+    uni.setStorageSync('type',this.user.type)
     console.log(rsp)
     let {authSetting}=await uni.getSetting()
     if (authSetting['scope.userLocation']) {
       await uni.authorize({scope: 'scope.userLocation'})
     }
-    let {longitude,latitude}=await uni.getLocation({type: 'gcj02'})
+    let {longitude,latitude,address}=await uni.getLocation({type: 'gcj02'})
     u.location={longitude,latitude}
+    uni.setStorageSync('loc',{longitude,latitude})
     await u.updateById(uni.getStorageSync('uid'))
     //await uni.openLocation({latitude: latitude, longitude: longitude})
     //调用云函数
@@ -93,12 +93,16 @@ export default {
         url: '/pages/user/profile'
       })
     },
+    clearStorage() {
+      uni.clearStorage()
+    },
     handleLogout() {
       uni.showModal({
         title: '提示',
         content: '确定要退出登录吗？',
         success: (res) => {
           if (res.confirm) {
+            uni.clearStorage()
             uni.setStorageSync('uid','')
             uni.setStorageSync('token','')
             uni.reLaunch({  url: '/pages/login/login' })

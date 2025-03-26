@@ -4,7 +4,7 @@
     <scroll-view
         class="chat-content"
         scroll-y
-        :scroll-top="scrollTop"
+        :scroll-top="chatStore.scrollTop"
         @scrolltoupper="loadHistory"
     >
       <view
@@ -22,7 +22,8 @@
 
         <!-- 消息内容 -->
         <view class="message-bubble">
-          <text class="message-text">{{ item.msg }}</text>
+          <text v-if="typeof item.msg=='string'" class="message-text">{{ item.msg }}</text>
+          <uni-icons v-else @click="openLoc(item.msg)" type="location" size="30"></uni-icons>
         </view>
 
         <!-- 自己头像 -->
@@ -36,18 +37,22 @@
 
     <!-- 功能菜单 -->
     <view v-if="showActionMenu" class="action-menu">
-      <view class="action-item" @click="handleVoiceCall">
-        <image class="action-icon" src="/static/voice-call.png"></image>
+<!--      <view class="action-item" @click="handleCall(1)">
+        <uni-icons type="phone-filled" size="30"></uni-icons>
         <text>语音</text>
       </view>
-      <view class="action-item" @click="handleVideoCall">
-        <image class="action-icon" src="/static/video-call.png"></image>
+      <view class="action-item" @click="handleCall(2)">
+        <uni-icons type="phone-filled" size="30"></uni-icons>
         <text>视频</text>
-      </view>
-<!--      <view class="action-item" @click="handleSendLocation">
-        <image @click="sendMessage({latitude: 31.033270128038193, longitude: 121.75690321180555})" class="action-icon" src="/static/location.png"></image>
-        <text>位置</text>
       </view>-->
+      <view class="action-item" @click="sendMessage(loc)">
+        <uni-icons type="location-filled" size="30"></uni-icons>
+        <text>位置</text>
+      </view>
+      <!--      <view class="action-item" @click="handleSendLocation">
+              <image @click="sendMessage({latitude: 31.033270128038193, longitude: 121.75690321180555})" class="action-icon" src="/static/location.png"></image>
+              <text>位置</text>
+            </view>-->
     </view>
 
     <!-- 输入区域 -->
@@ -59,77 +64,107 @@
           @confirm="sendMessage"
       />
       <view class="action-box">
-        <text
+
+        <uni-icons
             v-if="!inputMessage"
-            class="add-icon"
-            src="/static/add.png"
-            @click="toggleActionMenu"
-        >+</text>
+            @click="toggleActionMenu" type="plus" size="30"></uni-icons>
         <button
             v-else
             class="send-btn"
-            @click="sendMessage"
-        >发送</button>
+            @click="sendMessage(inputMessage)"
+        >发送
+        </button>
       </view>
     </view>
   </view>
 </template>
 
 <script>
+// #ifdef APP-PLUS
+const TUICallKit = uni.requireNativePlugin('TencentCloud-TUICallKit'); //【1】import TUICallKit plugin
+// #endif
 export default {
   data() {
     return {
-      uid:0,
-      myid:0,
+      loc: null,
+      show: false,
+      uid: 0,
+      myid: 0,
       inputMessage: '',
-      scrollTop: 0,
+      scrollTop: 600,
       showActionMenu: false,
-      messageList: [
-        // 原有测试数据...
-      ]
+      messageList: []
     }
   },
-  async onLoad({id}) {
-    this.uid=id
-    this.myid=uni.getStorageSync('uid')
+  async onLoad({id,name,avatar}) {
+    this.uid = id
+    this.name=name
+    this.avatar=decodeURIComponent(avatar)
+    this.myid = uni.getStorageSync('uid')
+    this.loc = uni.getStorageSync('loc')
     console.log(id)
     this.chatStore.chat(id)
   },
+  onShow() {
+    this.initWs()
+    console.log('show')
+  },
   methods: {
+    openLoc(loc) {
+      uni.openLocation(loc)
+    },
     toggleActionMenu() {
       this.showActionMenu = !this.showActionMenu
     },
-    sendMessage() {
-      if (!this.inputMessage.trim()) return
-      this.chatStore.handleMsg({
-        uid:this.myid,
-        name:'我',
-        icon:'https://img2.baidu.com/it/u=2955298602,2265234608&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=500',
-        time:new Date().getTime(),
-        msg:this.inputMessage
-      }, this.uid)
+    sendMessage(msg) {
+      if (!msg) return
+      //本地未读列表
+      if (this.chatStore.unreadMap[this.uid]){
+        this.chatStore.unreadMap[this.uid].msg=msg
+        this.chatStore.unreadMap[this.uid].time=new Date().getTime()
+      }else {//第一次消息
+        this.chatStore.unreadMap[this.uid]={
+          uid: this.uid,
+          name: this.name,
+          icon: this.avatar,
+          time: new Date().getTime(),
+          msg: msg
+        }
+      }
 
-      this.inputMessage = ''
-      this.$nextTick(() => {
-        this.scrollerToBottom()
+      uni.setStorageSync('unreadMap',this.chatStore.unreadMap)
+      //本地当前用户消息列表
+      let remoteMsg={
+        uid: this.myid,
+        name: uni.getStorageSync('name'),
+        to:this.uid,
+        icon:uni.getStorageSync('avatar'),
+        time: new Date().getTime(),
+        msg: msg
+      }
+      this.chatStore.messages.push(remoteMsg)
+      uni.setStorageSync(`messages-${this.uid}`,this.chatStore.messages)
+
+      uni.sendSocketMessage({
+        data: JSON.stringify(remoteMsg)
       })
-    },
-    scrollerToBottom() {
-      this.scrollTop = 99999
+      this.inputMessage = ''
+      this.chatStore.scrollTop = this.chatStore.scrollTop+100
     },
     loadHistory() {
       // 加载历史消息逻辑
     },
-    handleVoiceCall() {
-      uni.showToast({ title: '发起语音通话', icon: 'none' })
-      this.showActionMenu = false
-    },
-    handleVideoCall() {
-      uni.showToast({ title: '发起视频通话', icon: 'none' })
-      this.showActionMenu = false
+    handleCall(tp) {
+      // #ifdef APP-PLUS
+      TUICallKit.calls({
+        userIDList: ['2'],
+        callMediaType: tp,   // 1 -- audio call，2 -- video call
+        callParams: {roomID: 234, strRoomID: '2323423', timeout: 30},
+      })
+      // #endif
     },
     handleSendLocation() {
-      uni.showToast({ title: '发送位置', icon: 'none' })
+      uni.showToast({title: '发送位置', icon: 'none'})
       this.showActionMenu = false
     }
   }
@@ -137,6 +172,16 @@ export default {
 </script>
 
 <style scoped>
+.video-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #000;
+  z-index: 999;
+}
+
 .chat-container {
   display: flex;
   flex-direction: column;
@@ -218,15 +263,16 @@ export default {
 }
 
 .add-icon {
+  font-size: 22px;
   width: 60rpx;
   height: 60rpx;
 }
 
 .send-btn {
-  width: 140rpx;
+  width: 180rpx;
   height: 80rpx;
   line-height: 80rpx;
-  border-radius: 40rpx;
+  border-radius: 16rpx;
   background-color: #07c160;
   color: #fff;
   font-size: 28rpx;
@@ -242,7 +288,7 @@ export default {
   padding: 30rpx;
   display: flex;
   justify-content: space-around;
-  box-shadow: 0 -4rpx 20rpx rgba(0,0,0,0.1);
+  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.1);
 }
 
 .action-item {

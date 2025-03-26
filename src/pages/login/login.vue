@@ -109,6 +109,9 @@ export default {
           this.isAgree
     }
   },
+  onLoad() {
+    //this.handleLogin()
+  },
   methods: {
     // 验证手机号格式
     validatePhone() {
@@ -157,22 +160,16 @@ export default {
       uni.setStorageSync('token',token)
       uni.setStorageSync('uid',uid)
     },
-    // 手机号登录
     async handleLogin() {
       try {
-        let {code}=await uni.login({provider: 'weixin'})
+        let {code}=await uni.login({provider: 'weixin',"onlyAuthorize": true,}).catch(e=>{
+          console.log('login',e)
+        })
         let {uid,token}=await this.u.login(code)
         console.log('jwt token:',token)
         uni.setStorageSync('token',token)
         uni.setStorageSync('uid',uid)
-        uni.connectSocket({
-          url:`ws://localhost:3000/ws`,
-          header:{Authorization:token}
-        })
-        uni.onSocketMessage(rsp=>{
-          console.log(rsp.data,typeof rsp.data)
-          this.chatStore.handleMsg(JSON.parse(rsp.data))
-        })
+        this.initWs()
         uni.reLaunch({  url: '/pages/me/me' })
       } catch (error) {
         uni.showToast({ title: error.message, icon: 'none' })

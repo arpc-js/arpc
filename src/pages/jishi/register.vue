@@ -5,10 +5,10 @@
         <!-- 基础用法，不包含校验规则 -->
         <uni-forms ref="baseForm" :modelValue="baseFormData">
           <uni-forms-item label="姓名" required>
-            <uni-easyinput v-model="this.u.name" placeholder="请输入姓名" />
+            <uni-easyinput v-model="u.name" placeholder="请输入姓名" />
           </uni-forms-item>
           <uni-forms-item label="年龄" required>
-            <uni-easyinput v-model="this.u.age" placeholder="请输入年龄" />
+            <uni-easyinput v-model="u.age" placeholder="请输入年龄" />
           </uni-forms-item>
           <uni-forms-item label="头像" required>
             <uni-file-picker
@@ -175,7 +175,7 @@ export default {
   },
   methods: {
     async select(e){
-     let rsp=await uni.uploadFile({url: 'http://chenmeijia.top/up',
+     let rsp=await uni.uploadFile({url: 'https://chenmeijia.top/up',
            filePath: e.tempFilePaths[0],
            name: 'file',
       });
@@ -201,6 +201,9 @@ export default {
       this.dynamicLists.splice(index, 1)
     },
     async submit(ref) {
+      if (!this.u.name || !this.u.age||!this.u.avatar) {
+        throw '请完善信息'
+      }
       let {code} = await uni.login({provider: 'weixin'});
       this.u.type=1
       let {uid, token} = await this.u.login(code)

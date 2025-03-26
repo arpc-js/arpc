@@ -16,6 +16,10 @@
               <text class="detail-value price">¥{{item.total}}</text>
             </view>
             <view class="detail-item">
+              <text class="detail-label">顾客：</text>
+              <text class="detail-value price">{{item?.info?.name}}</text>
+            </view>
+            <view class="detail-item">
               <text class="detail-label">地址：</text>
               <text class="detail-value price">{{item?.info?.address}}</text>
             </view>
@@ -53,7 +57,11 @@ export default {
   },
   async onLoad() {
     const order = new Order()
-    this.list = await order.gets()
+    if (uni.getStorageSync('uid')==0){
+      this.list = await order.getByUid(uni.getStorageSync('uid'))
+    }else{
+      this.list = await order.getByStaffId(uni.getStorageSync('uid'))
+    }
   },
   methods: {
     formatTime(timestamp) {

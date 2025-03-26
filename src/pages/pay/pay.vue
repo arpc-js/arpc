@@ -16,7 +16,7 @@
         </view>
         <view class="goods-right">
           <text class="goods-price">¥{{ item.price }}</text>
-          <text class="goods-quantity">x{{ item.quantity }}</text>
+<!--          <text class="goods-quantity">x{{ item.quantity }}</text>-->
         </view>
       </view>
     </view>
@@ -54,26 +54,31 @@ import {Order} from "../../api/Order";
 // 商品数据
 const goodsList = reactive([
   {
-    image: '/static/logo.png',
-    title: '精油开背',
-    spec: '规格：500g',
-    price: 25.8,
+    image: '',
+    title: '',
+    spec: '',
+    price: 0,
     quantity: 1
   }
 ])
 // 地址和电话
 const address = ref('')
 const phone = ref('')
+const uname = ref('')
+const staff_id = ref('')
 // 配送费
-const deliveryFee = ref(1.0)
+const deliveryFee = ref(0)
 const distanceKM = ref(0)
 onLoad((opt) => {
+  console.log('src',decodeURIComponent(opt.src))
+  goodsList[0].image=decodeURIComponent(opt.src)
   goodsList[0].title=opt.project
   goodsList[0].price=opt.price
-  console.log(opt.id);  // 输出 URL 参数
   distanceKM.value =opt.distance
-  //deliveryFee.value=deliveryFee.value+0.2*distanceKM.value
-  deliveryFee.value.toFixed(2)
+  uname.value =opt.name
+  staff_id.value =opt.id
+  deliveryFee.value=deliveryFee.value+2*distanceKM.value
+  //deliveryFee.value.toFixed(2)
 });
 
 // 计算总价
@@ -94,15 +99,20 @@ const handlePay =async () => {
     return
   }
   let order = new Order()
+  order.staff_id=staff_id.value
   order.name = goodsList[0].title
   order.total = parseFloat(totalPrice.value)
   order.info={
+    name:uname.value,
     address:address.value,
     phone:phone.value,
     distance:distanceKM.value,
   }
   let p = await order.create()
-  await uni.requestPayment(p);
+  await uni.requestPayment(p).catch(e=>{
+    console.log('login',e)
+  });
+  uni.redirectTo({  url: '/pages/order/order' })
 /*  uni.showModal({
     title: '支付确认',
     content: `确认支付 ¥${totalPrice.value} 元吗？`,

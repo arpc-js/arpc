@@ -77,7 +77,7 @@ export class Oapi {
         }
 
         const server = Bun.serve({
-            port:80,
+            port:443,
             routes: {
                 "/static/:id": req => {
                     return new Response( Bun.file(`src/static/${req.params.id}`))
@@ -89,8 +89,8 @@ export class Oapi {
                     const formdata = await req.formData();
                     const file = formdata.get('file');
                     if (!file) throw new Error('Must upload a profile picture.');
-                    //await Bun.write(`src/static/${file['name']}`, file)
-                    return new Response('http://chenmeijia.top/static/logo.png')
+                    await Bun.write(`src/static/${file['name']}`, file)
+                    return new Response(`https://chenmeijia.top/static/${file['name']}`)
                 }
             },
             //routes: routeMap,
@@ -150,6 +150,7 @@ export class Oapi {
                         payload = await auth.verifyJWT(req.headers.get('Authorization')).catch(e => {
                             throw '403'
                         })
+                        console.log('payload',payload?.uid)
                     }
                     //@ts-ignore
                     let rsp = null
@@ -172,25 +173,32 @@ export class Oapi {
                 }
                 return Response.json('eee')
             },
+            tls: {
+                key: Bun.file("src/core/chenmeijia.top.key"),
+                cert: Bun.file("src/core/chenmeijia.top.pem"),
+            },
             websocket: {
                 open(ws) {
-                    const msg = `${ws.data.uid} has been received`;
+                    const msg = `用户${ws.data.uid}你好,欢迎使用技师直聊`;
                     console.log(msg)
                     ws.subscribe(`${ws.data.uid}`);
-                    //ws.send(JSON.stringify({msg: msg}))
+                    ws.send(JSON.stringify({msg: msg}))
                 },
                 message(ws, message) {
                     console.log(message)
                     let m = JSON.parse(message)
-                    m['from'] = ws.data.uid
-                    // this is a group chat
-                    // so the server re-broadcasts incoming message to everyone
-                    server.publish(m.to, m);
+                    if (m?.tp=='ping'){
+                        console.log('ping')
+                        return
+                    }
+                    m['ty']=typeof message
+                    let rsp=server.publish(m.to, JSON.stringify(m));
+                    console.log('send:',rsp)
                 },
                 close(ws) {
-                    const msg = `${ws.data.username} has left the chat`;
-                    ws.unsubscribe("the-group-chat");
-                    server.publish("the-group-chat", msg);
+                    const msg = `${ws.data.uid} has left the chat`;
+                    ws.unsubscribe(`${ws.data.uid}`);
+                    server.publish(`${ws.data.uid}`, msg);
                 },
             },
             error(error) {

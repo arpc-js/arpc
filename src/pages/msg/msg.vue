@@ -22,7 +22,8 @@
 
           <!-- 消息预览 -->
           <view class="preview-line">
-            <text class="message">{{ item.msg }}</text>
+            <text v-if="typeof item.msg=='string'" class="message">{{ item.msg }}</text>
+            <uni-icons v-else   type="location" size="30"></uni-icons>
             <view v-if="item.count > 0" class="badge">
               {{ item.count > 99 ? '99+' : item.count }}
             </view>
@@ -34,7 +35,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, getCurrentInstance } from 'vue';
+import {computed, getCurrentInstance, watchEffect} from 'vue';
+import {onShow} from "@dcloudio/uni-app";
 
 const instance = getCurrentInstance();
 const chatStore = instance?.appContext.config.globalProperties.chatStore;
@@ -56,6 +58,14 @@ const totalUnread = computed(() => {
       0
   );
 });
+onShow(() => {
+  const count = instance?.appContext.config.globalProperties.chatStore['totalUnread']
+  console.log('count',count)
+  uni.setTabBarBadge({
+    index: 1,
+    text: count > 0 ? count.toString() : ''
+  })
+})
 </script>
 
 <style lang="scss">

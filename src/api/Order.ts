@@ -5,6 +5,7 @@ import {ctx} from "../core/oapi.ts";
 export class Order extends Base<Order>{
     id:bigint
     uid:bigint
+    staff_id:bigint
     name:string
     total:number
     status:bigint
@@ -13,6 +14,12 @@ export class Order extends Base<Order>{
     info
     created_at:Date
     updated_at:Date
+    async getByStaffId(id){
+        return await this.gets`staff_id=${26}`
+    }
+    async getByUid(id){
+        return await this.gets`uid=${id}`
+    }
     async cb(){
         let req=ctx("req")
         let r=await parseXml(await req.text())
@@ -47,20 +54,23 @@ export class Order extends Base<Order>{
             {headers: {'Content-Type': 'application/xml'}}
         );
     }
-    async create(cb='cb'){
+    async create(cb='cb',giftAmount=0){
         console.log('cb:',cb)
-        this.uid=ctx('uid')
+        let u=new User()
+        u=await u.getById(ctx('uid'))
         this.created_at=new Date()
         this.status=0n
         this.out_trade_no=new Date().getTime().toString()
         let p=await createOrder({
             name:this.name,
             out_trade_no:this.out_trade_no,
-            total:this.total,
-            openid:'oUotf7Fjf3ZSJ9x1_0MjsLOd-ib4',
-            cb:`http://chenmeijia.top/Order/${cb}`
+            total:this.total*100,
+            openid:u.openid,
+            cb:`https://chenmeijia.top/Order/${cb}`
         });
+        this.uid=u.id
         this.prepay_id=p['prepay_id']
+        this.total=this.total+giftAmount
         await this.add()
         return p
     }
@@ -70,6 +80,7 @@ export class Order extends Base<Order>{
         await this.add()
         let p=await createOrder({
             name:this.name,
+            //@ts-ignore
             id:this.id+23,
             total:this.total,
             openid:'oUotf7Fjf3ZSJ9x1_0MjsLOd-ib4',

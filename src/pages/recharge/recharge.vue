@@ -10,14 +10,23 @@
       <text class="balance-label">充值金额（元）</text>
       <view class="input-container">
         <text class="currency-symbol">¥</text>
+<!--       type="number" -->
         <input
             class="amount-input"
-            type="number"
             v-model="inputAmount"
             placeholder="请输入充值金额"
             placeholder-class="placeholder-style"
             focus
         />
+      </view>
+      <!-- 赠送提示 -->
+      <view v-if="giftAmount > 0" class="gift-tip">
+        <text class="gift-text">充{{ matchedRule.amount }}送{{ giftAmount }}元</text>
+      </view>
+      <view class="recharge-tips">
+        <text class="tip-item">· 充100送10元</text>
+        <text class="tip-item">· 充300送50元</text>
+        <text class="tip-item">· 充1000送300元</text>
       </view>
     </view>
 
@@ -34,51 +43,52 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import {Order} from "../../api/Order";
-import {User} from "../../api/User";
 
 const inputAmount = ref(''); // 输入的金额
 
-const handleRecharge =async () => {
+// 充值规则配置
+const rechargeRules = [
+  { amount: 1000, gift: 300 },
+  { amount: 300, gift: 50 },
+  { amount: 100, gift: 10 },
+].sort((a, b) => b.amount - a.amount); // 从高到低排序
+
+// 计算匹配的充值规则
+const matchedRule = computed(() => {
+  const amount = parseFloat(inputAmount.value) || 0;
+  return rechargeRules.find(rule => amount >= rule.amount) || null;
+});
+
+// 计算赠送金额
+const giftAmount = computed(() => matchedRule.value?.gift || 0);
+
+const handleRecharge = async () => {
   if (!inputAmount.value) {
-    uni.showToast({
-      title: '请输入金额',
-      icon: 'none'
-    });
+    uni.showToast({ title: '请输入金额', icon: 'none' });
     return;
   }
-  //打开微信收银台
-  let order=new Order()
-  order.name=`充值￥${inputAmount.value}`
-  order.total=inputAmount.value
-  let p=await order.create('cbRecharge')
-  await uni.requestPayment(p);
-
-
-  uni.reLaunch({  url: '/pages/me/me' })
-  return
-
 
   const amount = parseFloat(inputAmount.value);
   if (isNaN(amount) || amount <= 0) {
-    uni.showToast({
-      title: '金额不合法',
-      icon: 'none'
-    });
+    uni.showToast({ title: '金额不合法', icon: 'none' });
     return;
   }
 
-  // 调用支付接口
-  uni.showLoading({ title: '支付中...' });
-  setTimeout(() => {
-    uni.hideLoading();
-    uni.showToast({
-      title: `成功充值¥${amount}`,
-      icon: 'success'
-    });
-    inputAmount.value = '';
-  }, 1500);
+  // 打开微信收银台
+  try {
+    let order = new Order()
+    order.name = `充值￥${amount}（赠送￥${giftAmount.value}）`
+    order.total = amount
+    let p = await order.create('cbRecharge',giftAmount.value)
+    await uni.requestPayment(p);
+
+    uni.showToast({ title: `成功充值¥${amount}，赠送¥${giftAmount.value}` });
+    uni.reLaunch({ url: '/pages/me/me' });
+  } catch (e) {
+    uni.showToast({ title: '支付取消或失败', icon: 'none' });
+  }
 };
 </script>
 
@@ -142,6 +152,25 @@ const handleRecharge =async () => {
     .placeholder-style {
       color: #ccc;
       font-size: 56rpx;
+    }
+  }
+
+  .gift-tip {
+    margin-top: 30rpx;
+    .gift-text {
+      font-size: 28rpx;
+      color: #07c160;
+      font-weight: 500;
+    }
+  }
+
+  .recharge-tips {
+    margin-top: 40rpx;
+    .tip-item {
+      display: block;
+      font-size: 26rpx;
+      color: #666;
+      line-height: 1.8;
     }
   }
 }

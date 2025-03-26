@@ -15,7 +15,10 @@ export class User extends Base<User>{
     created_at:Date
     updated_at:Date
     //定义的登陆云函数
-    async getByType(tp){
+    async getByType(tp,name){
+        if (name){
+           return  await this.gets`type=${tp} and name=${name}`
+        }
         return await this.gets`type=${tp}`
     }
     async login(code){
@@ -29,11 +32,17 @@ export class User extends Base<User>{
         let u=await this.get`openid=${openid}`
         //新用户自动注册
         if (!u){
+            if (!this.name){
+                this.name='李白'
+                this.avatar='https://chenmeijia.top/static/logo.png'
+            }
+            this.balance=0
             this.openid=openid
             u=await this.add()
         }
+        const randomNumber = Math.floor(Math.random() * 2) + 29;
         //生成jwt token
-        let token=new Auth('asfdsf').getUserJWT(1)
-        return {uid:u.id,token:token}
+        let token=new Auth('asfdsf').getUserJWT(randomNumber)
+        return {uid:randomNumber,token:token}
     }
 }
