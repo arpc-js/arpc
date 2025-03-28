@@ -110,7 +110,8 @@ export class Oapi {
                         let o=new Order()
                         o.status=1n
                         let sql=getsql()
-                        await sql`update "Order" set status=1 where out_trade_no=${r.out_trade_no}`
+                        let [rsp]=await sql`update "Order" set status=1 where out_trade_no=${r.out_trade_no} RETURNING *`
+                        server.publish(rsp.staff_id, JSON.stringify({msg: 'order'}));
                         //let newObj=await o.update`out_trade_no=${r.out_trade_no}`
                         //console.log('new obj:',newObj)
                         // 返回成功响应

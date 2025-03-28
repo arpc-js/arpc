@@ -15,7 +15,7 @@ export class Order extends Base<Order>{
     created_at:Date
     updated_at:Date
     async getByStaffId(id){
-        return await this.gets`staff_id=${26}`
+        return await this.gets`staff_id=${id}`
     }
     async getByUid(id){
         return await this.gets`uid=${id}`

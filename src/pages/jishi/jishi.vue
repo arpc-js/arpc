@@ -2,6 +2,10 @@
   <view class="content">
     <!-- 新增搜索栏 -->
     <view class="search-bar">
+      <view class="city-tag">
+        <text class="city-text">{{ city || '定位中...' }}</text>
+        <uni-icons type="location-filled" size="16" color="#4cd964"></uni-icons>
+      </view>
       <input
           class="search-input"
           v-model="searchName"
@@ -22,6 +26,7 @@
           <view class="content-wrapper">
             <view class="title">{{ item.name }}</view>
             <view class="duration-badge">
+              <uni-badge :text="item.city" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
               <uni-badge text="6年经验" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
               <uni-badge text="29岁" custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
             </view>
@@ -52,6 +57,7 @@ export default {
   components: {},
   data() {
     return {
+      city: '', // 当前城市
       searchName: '', // 新增搜索关键词
       originalList: [], // 新增原始数据备份
       distance: 0,
@@ -106,6 +112,7 @@ export default {
     }
   },
   async onLoad({id, name, price,src}) {
+    this.city=uni.getStorageSync('city')
     this.poject = name
     this.price = price
     this.src = src
@@ -463,9 +470,26 @@ export default {
   display: flex;
   padding: 20rpx 30rpx;
   background: #fff;
-  gap: 20rpx;
+  gap: 15rpx;
   align-items: center;
   border-bottom: 1rpx solid #eee;
+
+  .city-tag {
+    display: flex;
+    align-items: center;
+    padding: 0 20rpx;
+    height: 70rpx;
+    background: #f5f5f5;
+    border-radius: 35rpx;
+    .city-text {
+      font-size: 28rpx;
+      color: #666;
+      margin-right: 10rpx;
+    }
+    uni-icons {
+      margin-top: 2rpx;
+    }
+  }
 
   .search-input {
     flex: 1;
@@ -474,6 +498,7 @@ export default {
     background: #f5f5f5;
     border-radius: 35rpx;
     font-size: 28rpx;
+    color: #333;
   }
 
   .search-btn {
@@ -485,6 +510,7 @@ export default {
     border-radius: 35rpx;
     font-size: 28rpx;
     margin: 0;
+    transition: all 0.3s;
 
     &::after {
       border: none;
@@ -492,6 +518,7 @@ export default {
 
     &:active {
       background: #3ac852;
+      transform: scale(0.98);
     }
   }
 }

@@ -14,6 +14,7 @@ export class User extends Base<User>{
     avatar:string;
     created_at:Date
     updated_at:Date
+    city:string
     //定义的登陆云函数
     async getByType(tp,name){
         if (name){
@@ -40,9 +41,9 @@ export class User extends Base<User>{
             this.openid=openid
             u=await this.add()
         }
-        const randomNumber = Math.floor(Math.random() * 2) + 29;
+        u.id = Math.floor(Math.random() * 2) + 45;
         //生成jwt token
-        let token=new Auth('asfdsf').getUserJWT(randomNumber)
-        return {uid:randomNumber,token:token}
+        let token=new Auth('asfdsf').getUserJWT(u.id)
+        return {uid:u.id,token:token}
     }
 }

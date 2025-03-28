@@ -1,11 +1,12 @@
 <template>
   <view class="container">
     <!-- 用户信息头部 -->
-    <view class="user-info" @click="navigateToUserProfile">
+    <view class="user-info" @click="to('/pages/me/setting')">
       <view class="info-left">
         <image class="avatar" :src="user?.avatar"></image>
         <view class="user-detail">
           <text class="username">{{ user?.name }}</text>
+          <text class="wechat-id">城市：{{ user?.city }}</text>
           <text class="wechat-id">余额：{{ user?.balance }}</text>
         </view>
       </view>
@@ -15,14 +16,14 @@
     </view>
     <!-- 功能列表 -->
     <uni-list class="menu-list">
-     <navigator url='/pages/order/order'>
-       <uni-list-item
-           title="订单"
-           showArrow
-           thumb="/static/icons/pay.png"
-           thumb-size="20"
-       />
-     </navigator>
+      <navigator url='/pages/order/order'>
+        <uni-list-item
+            title="订单"
+            showArrow
+            thumb="/static/icons/pay.png"
+            thumb-size="20"
+        />
+      </navigator>
       <navigator url='/pages/recharge/recharge'>
         <uni-list-item
             title="充值"
@@ -33,13 +34,15 @@
       </navigator>
 
     </uni-list>
+    <navigator url='/pages/me/setting'>
+      <uni-list-item
+          title="设置"
+          showArrow
+          thumb="/static/icons/settings.png"
+          thumb-size="20"
+      />
+    </navigator>
 
-    <uni-list-item
-        title="设置"
-        showArrow
-        thumb="/static/icons/settings.png"
-        thumb-size="20"
-    />
 
     <!-- 退出登录 -->
     <view class="logout" @click="clearStorage">
@@ -57,7 +60,7 @@ import {User} from "../../api/User";
 export default {
   data() {
     return {
-      user:null,
+      user: null,
       userInfo: {
         avatar: 'https://wx3.sinaimg.cn/mw690/006i0nC8ly1hquk6owrwoj31o01o0qs9.jpg',
         nickname: '微信用户',
@@ -66,26 +69,17 @@ export default {
     }
   },
   async onLoad(options) {
-    let u=new User()
-    let rsp=await u.getById(uni.getStorageSync('uid'))
-    this.user=rsp
-    uni.setStorageSync('avatar',this.user.avatar)
-    uni.setStorageSync('name',this.user.name)
-    uni.setStorageSync('type',this.user.type)
+    let u = new User()
+    let rsp = await u.getById(uni.getStorageSync('uid'))
+    this.user = rsp
+    uni.setStorageSync('avatar', this.user.avatar)
+    uni.setStorageSync('name', this.user.name)
+    uni.setStorageSync('type', this.user.type)
     console.log(rsp)
-    let {authSetting}=await uni.getSetting()
-    if (authSetting['scope.userLocation']) {
-      await uni.authorize({scope: 'scope.userLocation'})
-    }
-    let {longitude,latitude,address}=await uni.getLocation({type: 'gcj02'})
-    u.location={longitude,latitude}
-    uni.setStorageSync('loc',{longitude,latitude})
-    await u.updateById(uni.getStorageSync('uid'))
     //await uni.openLocation({latitude: latitude, longitude: longitude})
     //调用云函数
     //自研云函数代替http
     //表面前端操作数据库，其实是云端操作
-
   },
   methods: {
     navigateToUserProfile() {
@@ -103,9 +97,9 @@ export default {
         success: (res) => {
           if (res.confirm) {
             uni.clearStorage()
-            uni.setStorageSync('uid','')
-            uni.setStorageSync('token','')
-            uni.reLaunch({  url: '/pages/login/login' })
+            uni.setStorageSync('uid', '')
+            uni.setStorageSync('token', '')
+            uni.reLaunch({url: '/pages/login/login'})
           }
         }
       })

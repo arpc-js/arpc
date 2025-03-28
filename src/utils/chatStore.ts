@@ -6,9 +6,10 @@ export class ChatStore {
         this.unreadMap = uni.getStorageSync('unreadMap') || {};
     }
     chat(uid){
-        this.scrollTop=9999
+
         this.messages = uni.getStorageSync(`messages-${uid}`) ||[];
-        this.unreadMap[uid]['count']=0
+        //曾经聊过天，未读置0，没聊过就没有未读不操作
+        if (this.unreadMap[uid]){this.unreadMap[uid]['count']=0}
         uni.setStorageSync('unreadMap',this.unreadMap)
     }
     receiveMsg(msg,){

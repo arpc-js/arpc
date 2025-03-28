@@ -2,6 +2,13 @@
   <view class="container">
     <!-- 地址输入区域 -->
     <view class="input-section">
+      <view class="address-selector" @click="chooseLoc">
+        <uni-icons type="location-filled" size="18" color="#007AFF"></uni-icons>
+        <text class="selector-text">
+          {{ locname || '点击选择位置' }}
+        </text>
+        <uni-icons type="forward" size="16" color="#666"></uni-icons>
+      </view>
       <input class="input-item" v-model="address" placeholder="请输入详细地址" />
       <input class="input-item" v-model="phone" placeholder="请输入联系电话" type="number" />
     </view>
@@ -62,6 +69,7 @@ const goodsList = reactive([
   }
 ])
 // 地址和电话
+let locname = ref('')
 const address = ref('')
 const phone = ref('')
 const uname = ref('')
@@ -69,7 +77,9 @@ const staff_id = ref('')
 // 配送费
 const deliveryFee = ref(0)
 const distanceKM = ref(0)
-onLoad((opt) => {
+onLoad(async (opt) => {
+  //await chooseLoc()
+  console.log('chooseLocation',location)
   console.log('src',decodeURIComponent(opt.src))
   goodsList[0].image=decodeURIComponent(opt.src)
   goodsList[0].title=opt.project
@@ -88,7 +98,14 @@ const totalPrice = computed(() => {
   }, 0)
   return (goodsTotal + deliveryFee.value).toFixed(2)
 })
-
+const chooseLoc=async ()=>{
+  const location = await uni.chooseLocation({
+    latitude: uni.getStorageSync('loc').latitude,
+    longitude: uni.getStorageSync('loc').longitude,
+  })
+  locname.value=location.name
+  console.log('chooseLocation',location)
+}
 // 支付处理
 const handlePay =async () => {
   if (!address.value || !phone.value) {
@@ -101,9 +118,10 @@ const handlePay =async () => {
   let order = new Order()
   order.staff_id=staff_id.value
   order.name = goodsList[0].title
-  order.total = parseFloat(totalPrice.value)
+  order.total =0.01 //parseFloat(totalPrice.value)
   order.info={
     name:uname.value,
+    locname:locname.value,
     address:address.value,
     phone:phone.value,
     distance:distanceKM.value,
@@ -313,5 +331,26 @@ function getDistance(lng1,lat1, lng2,lat2, unit = 'K') {
   font-size: 30rpx;
   font-weight: 500;
   box-shadow: 0 4rpx 16rpx rgba(228, 57, 60, 0.3);
+}
+.address-selector {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #eee;
+}
+
+.selector-text {
+  flex: 1;
+  font-size: 28rpx;
+  color: #333;
+  margin: 0 20rpx;
+}
+
+/* 优化输入框样式 */
+.input-item {
+  height: 100rpx;
+  font-size: 28rpx;
+  border-bottom: 1rpx solid #eee;
+  padding: 20rpx 0;
 }
 </style>

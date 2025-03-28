@@ -21,6 +21,10 @@
             </view>
             <view class="detail-item">
               <text class="detail-label">地址：</text>
+              <text class="detail-value price">{{item?.info?.locname}}</text>
+            </view>
+            <view class="detail-item">
+              <text class="detail-label">详细地址：</text>
               <text class="detail-value price">{{item?.info?.address}}</text>
             </view>
             <view class="detail-item">
@@ -57,10 +61,10 @@ export default {
   },
   async onLoad() {
     const order = new Order()
-    if (uni.getStorageSync('uid')==0){
-      this.list = await order.getByUid(uni.getStorageSync('uid'))
-    }else{
+    if (uni.getStorageSync('type')==1){
       this.list = await order.getByStaffId(uni.getStorageSync('uid'))
+    }else{
+      this.list = await order.getByUid(uni.getStorageSync('uid'))
     }
   },
   methods: {

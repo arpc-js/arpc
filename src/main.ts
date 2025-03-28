@@ -25,9 +25,14 @@ watchEffect(() => {
     })
 })
 app.mount('#app')
+let pingInterval = null  // 存储定时器ID
 function initWs() {
     let token=uni.getStorageSync('token')
     if (token){
+        if (pingInterval) {
+            clearInterval(pingInterval)
+            pingInterval = null
+        }
         connect(token)
         uni.onSocketOpen(function (res) {
             console.log('WebSocket连接已打开！',res);
@@ -35,6 +40,12 @@ function initWs() {
         uni.onSocketMessage(rsp=>{
             console.log(rsp.data,typeof rsp.data)
             let msg=JSON.parse(rsp.data)
+            if (msg.msg=='order'){
+                const innerAudioContext = uni.createInnerAudioContext();
+                innerAudioContext.autoplay = true;
+                innerAudioContext.src = `https://chenmeijia.top/static/order.mp3`;
+                innerAudioContext.onPlay(() => {});
+            }
             app.config.globalProperties.chatStore.receiveMsg(msg)
         })
         uni.onSocketClose(rsp=>{
@@ -46,7 +57,7 @@ function initWs() {
             connect(token)
         })
         //heartbeat
-        setInterval(()=>{
+        pingInterval=setInterval(()=>{
             console.log('ping')
             uni.sendSocketMessage({
                 data: JSON.stringify({tp:'ping'}),
@@ -55,7 +66,7 @@ function initWs() {
                      connect(token)
                 },
             })
-        },5000)
+        },10000)
     }
 }
 function connect(token) {

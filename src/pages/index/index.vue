@@ -8,7 +8,7 @@
         </swiper-item>
       </swiper>
     </uni-swiper-dot>
-    <uni-section title="全部项目" type="line">
+    <uni-section :title="'全部项目 | '+city" type="line">
       <uni-list>
         <view  class="service-card" v-for="{id,src,name,timespan,price,old_price,sells,info_src} in list">
           <image :src="src"
@@ -41,6 +41,7 @@ export default {
   components: {},
   data() {
     return {
+      city:'',
       list:[],
       info: [{
         colorClass: 'uni-bg-red',
@@ -92,12 +93,30 @@ export default {
     console.log('chatStore:',this.chatStore)
     let spu=new Spu()
     this.list=await spu.gets()
-    //两行代码前后端通信
-    let u=new User()
-    let token=await u.get('2')//.catch(e=>uni.reLaunch({  url: '/pages/login/login' }))
-    console.log('token',token)
-    //能访问数据说明用户已经登录，连接websocket
 
+/*    let {authSetting}=await uni.getSetting()
+        if (authSetting['scope.userLocation']) {
+
+        }*/
+    await uni.authorize({scope: 'scope.userLocation'})
+    let {longitude,latitude,address}=await uni.getLocation({type: 'gcj02'})
+    const res = await uni.request({
+      url: `https://apis.map.qq.com/ws/geocoder/v1/`,
+      data: {
+        location: `${latitude},${longitude}`,
+        key: 'ZVTBZ-Z3Z63-DGG3V-OCIR4-QTUDV-NFF5E', // 请替换为自己的key
+        get_poi: 0
+      }
+    });
+    console.log(res.data)
+    let u=new User()
+    u.city=res.data.result.ad_info.city
+    this.city=u.city
+    console.log('u.city:',u.city)
+    u.location={longitude,latitude}
+    uni.setStorageSync('loc',{longitude,latitude})
+    uni.setStorageSync('city',u.city)
+    await u.updateById(uni.getStorageSync('uid'))
   },
   methods: {
     change(e) {

@@ -4,8 +4,8 @@
     <view class="message-list">
       <navigator
           v-for="(item, uid) in chatStore.unreadMap"
-          :key="uid"
-          :url="`/pages/chat/chat?id=${uid}`"
+          :key="item.uid"
+          :url="`/pages/chat/chat?id=${item.uid}`"
           class="message-item"
           hover-class="message-item-hover"
       >

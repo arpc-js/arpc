@@ -4,7 +4,7 @@ onLaunch(() => {
   console.log("App Launch");
 });
 onError((e)=>{
-  uni.showToast({title: `${e}`,icon:'none'});
+  uni.showToast({title: `${JSON.stringify(e)}`,icon:'none'});
   console.error('捕获到全局错误:', e);
   //403异常跳转到登录页面
   if (e=='403'){

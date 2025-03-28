@@ -170,7 +170,7 @@ export default {
         uni.setStorageSync('token',token)
         uni.setStorageSync('uid',uid)
         this.initWs()
-        uni.reLaunch({  url: '/pages/me/me' })
+        uni.reLaunch({  url: '/pages/index/index' })
       } catch (error) {
         uni.showToast({ title: error.message, icon: 'none' })
       }

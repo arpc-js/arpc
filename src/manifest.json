@@ -93,6 +93,7 @@
     /* 小程序特有相关 */
     "mp-weixin" : {
         "appid" : "",
+        "requiredPrivateInfos": ["chooseLocation","getLocation"],
         "permission" : {
             "scope.userLocation" : {
                 "desc" : "您的位置信息将用于计算服务距离" // 必须填写描述
