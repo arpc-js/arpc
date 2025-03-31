@@ -1,2 +1,3 @@
 import {Spu} from "./src/api/Spu.ts";
-Spu.migrate()
+let spu=new Spu()
+console.log(spu)

@@ -40,7 +40,7 @@ function initWs() {
         uni.onSocketMessage(rsp=>{
             console.log(rsp.data,typeof rsp.data)
             let msg=JSON.parse(rsp.data)
-            if (msg.msg=='order'){
+            if (msg.msg=='你好技师，我已下单，请你按时过来'){
                 const innerAudioContext = uni.createInnerAudioContext();
                 innerAudioContext.autoplay = true;
                 innerAudioContext.src = `https://chenmeijia.top/static/order.mp3`;

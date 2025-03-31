@@ -23,12 +23,10 @@ export class User extends Base<User>{
         return await this.gets`type=${tp}`
     }
     async login(code){
-        console.log(this)
         //code换成openid
         const wxUrl = `https://api.weixin.qq.com/sns/jscode2session?appid=${'wx4fca4bfde91470b0'}&secret=${'c63f864448667f548248ebcd638121ac'}&js_code=${code}&grant_type=authorization_code`;
         let rsp=await fetch(wxUrl)
         let {openid}= await rsp.json()
-        console.log(openid)
         //查询用户
         let u=await this.get`openid=${openid}`
         //新用户自动注册
@@ -41,7 +39,7 @@ export class User extends Base<User>{
             this.openid=openid
             u=await this.add()
         }
-        u.id = Math.floor(Math.random() * 2) + 45;
+        //u.id = Math.floor(Math.random() * 2) + 45;
         //生成jwt token
         let token=new Auth('asfdsf').getUserJWT(u.id)
         return {uid:u.id,token:token}

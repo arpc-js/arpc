@@ -8,6 +8,7 @@
           :url="`/pages/chat/chat?id=${item.uid}`"
           class="message-item"
           hover-class="message-item-hover"
+          @longpress="handleLongPress(item.uid)"
       >
         <!-- 头像 -->
         <image class="avatar" :src="item.icon || defaultAvatar"></image>
@@ -50,7 +51,20 @@ const formatTime = (timestamp: number) => {
   const date = new Date(timestamp);
   return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
 };
-
+const handleLongPress = (uid: string) => {
+  uni.showActionSheet({
+    itemList: ['删除', '隐藏'],
+    success: (res) => {
+      if (res.tapIndex === 0) {
+        // 删除聊天
+        chatStore.del(uid);
+      } else if (res.tapIndex === 1) {
+        // 隐藏聊天
+        chatStore.hide(uid);
+      }
+    }
+  });
+};
 // 未读消息总数
 const totalUnread = computed(() => {
   return Object.values(chatStore.unreadMap).reduce(

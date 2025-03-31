@@ -72,9 +72,6 @@ export default {
     let u = new User()
     let rsp = await u.getById(uni.getStorageSync('uid'))
     this.user = rsp
-    uni.setStorageSync('avatar', this.user.avatar)
-    uni.setStorageSync('name', this.user.name)
-    uni.setStorageSync('type', this.user.type)
     console.log(rsp)
     //await uni.openLocation({latitude: latitude, longitude: longitude})
     //调用云函数

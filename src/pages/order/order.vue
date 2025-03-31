@@ -16,6 +16,10 @@
               <text class="detail-value price">¥{{item.total}}</text>
             </view>
             <view class="detail-item">
+              <text class="detail-label">技师：</text>
+              <text class="detail-value price">{{item?.info?.jishi}}</text>
+            </view>
+            <view class="detail-item">
               <text class="detail-label">顾客：</text>
               <text class="detail-value price">{{item?.info?.name}}</text>
             </view>

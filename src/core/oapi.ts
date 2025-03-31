@@ -111,7 +111,22 @@ export class Oapi {
                         o.status=1n
                         let sql=getsql()
                         let [rsp]=await sql`update "Order" set status=1 where out_trade_no=${r.out_trade_no} RETURNING *`
-                        server.publish(rsp.staff_id, JSON.stringify({msg: 'order'}));
+                        let u= new User()
+                        u=await u.getById(rsp.uid)
+                        server.publish(rsp.staff_id, JSON.stringify({
+                            uid:u.id,
+                            name:u.name,
+                            icon:u.avatar,
+                            msg: '你好技师，我已下单，请你按时过来',
+                            time:new Date().getTime()
+                        }));
+                        server.publish(rsp.staff_id, JSON.stringify({
+                            uid:u.id,
+                            name:u.name,
+                            icon:u.avatar,
+                            msg: u.location,
+                            time:new Date().getTime()
+                        }));
                         //let newObj=await o.update`out_trade_no=${r.out_trade_no}`
                         //console.log('new obj:',newObj)
                         // 返回成功响应
@@ -189,7 +204,7 @@ export class Oapi {
                     console.log(message)
                     let m = JSON.parse(message)
                     if (m?.tp=='ping'){
-                        console.log('ping')
+                        console.log(`${ws.data.uid}:ping`)
                         return
                     }
                     m['ty']=typeof message

@@ -97,6 +97,7 @@ let meta_plugin={
             //类型擦除
             const result = ts.transpileModule(classString, { compilerOptions });
             console.log( result.outputText)
+            meta={}
             return { contents: result.outputText, loader: "ts" };
         });
     },

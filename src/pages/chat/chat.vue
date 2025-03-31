@@ -131,7 +131,6 @@ export default {
           msg: msg
         }
       }
-
       uni.setStorageSync('unreadMap',this.chatStore.unreadMap)
       //本地当前用户消息列表
       let remoteMsg={

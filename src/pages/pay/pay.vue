@@ -55,10 +55,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import {ref, reactive, computed, getCurrentInstance} from 'vue'
 import { onLoad } from '@dcloudio/uni-app';
 import {Order} from "../../api/Order";
 // 商品数据
+const instance = getCurrentInstance();
+const chatStore = instance?.appContext.config.globalProperties.chatStore;
 const goodsList = reactive([
   {
     image: '',
@@ -77,6 +79,7 @@ const staff_id = ref('')
 // 配送费
 const deliveryFee = ref(0)
 const distanceKM = ref(0)
+let avatar=ref('')
 onLoad(async (opt) => {
   //await chooseLoc()
   console.log('chooseLocation',location)
@@ -87,6 +90,7 @@ onLoad(async (opt) => {
   distanceKM.value =opt.distance
   uname.value =opt.name
   staff_id.value =opt.id
+  avatar=opt.avatar
   deliveryFee.value=deliveryFee.value+2*distanceKM.value
   //deliveryFee.value.toFixed(2)
 });
@@ -120,16 +124,28 @@ const handlePay =async () => {
   order.name = goodsList[0].title
   order.total =0.01 //parseFloat(totalPrice.value)
   order.info={
-    name:uname.value,
+    jishi:uname.value,
+    name:uni.getStorageSync('name'),
     locname:locname.value,
     address:address.value,
     phone:phone.value,
     distance:distanceKM.value,
   }
   let p = await order.create()
-  await uni.requestPayment(p).catch(e=>{
-    console.log('login',e)
-  });
+  await uni.requestPayment(p)
+  if (chatStore.unreadMap[staff_id.value]){
+    chatStore.unreadMap[staff_id.value].msg='你好技师，我已下单，请你按时过来'
+    chatStore.unreadMap[staff_id.value].time=new Date().getTime()
+  }else {//第一次消息
+    chatStore.unreadMap[staff_id.value]={
+      uid: staff_id.value,
+      name: uname.value,
+      icon: avatar.value,
+      time: new Date().getTime(),
+      msg: '你好技师，我已下单，请你按时过来'
+    }
+  }
+  uni.setStorageSync('unreadMap',chatStore.unreadMap)
   uni.redirectTo({  url: '/pages/order/order' })
 /*  uni.showModal({
     title: '支付确认',

@@ -74,22 +74,4 @@ export class Order extends Base<Order>{
         await this.add()
         return p
     }
-    async recharge(){
-        this.created_at=new Date()
-        this.status=0n
-        await this.add()
-        let p=await createOrder({
-            name:this.name,
-            //@ts-ignore
-            id:this.id+23,
-            total:this.total,
-            openid:'oUotf7Fjf3ZSJ9x1_0MjsLOd-ib4',
-            cb:''
-        });
-        let u=new User()
-        let u1=await u.getById(ctx('uid'))
-        u.balance=u1.balance+this.total
-        await u.updateById(u1.id)
-        return p
-    }
 }

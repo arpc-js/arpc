@@ -34,7 +34,7 @@
               <text class="original-price">{{item.distance}}km</text>
               <!--              <text class="original-price">34好评</text>-->
               <button
-                  @click="to(`/pages/pay/pay?id=${item.id}&name=${item.name}&project=${this.poject}&price=${this.price}&distance=${item.distance}&src=${this.src}`)"
+                  @click="to(`/pages/pay/pay?id=${item.id}&name=${item.name}&project=${this.poject}&price=${this.price}&distance=${item.distance}&src=${this.src}&avatar=${encodeURIComponent(item.avatar)}`)"
                   type="default"
                   style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">下单
               </button>

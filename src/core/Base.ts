@@ -98,8 +98,6 @@ export class Base<T> {
         // 组合完整 SQL 并执行
         let [one]=await sql`SELECT ${cols} FROM ${sql(table)} ${where}`
         return one
-
-            ;
     }
     async gets(strings, ...values) {
         let sql=getsql()

@@ -25,7 +25,7 @@
             <view class="price" style="display: flex">
               <text class="current-price">￥{{price}}</text>
               <text class="original-price">￥{{old_price}}</text>
-              <button @click.stop="to(`/pages/jishi/jishi?id=${id}&name=${name}&price=${price}&src=${encodeURIComponent(src)}`)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">选择项目</button>
+              <button @click.stop="jishi(id,name,price,src)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">选择项目</button>
             </view>
           </view>
         </view>
@@ -45,17 +45,17 @@ export default {
       list:[],
       info: [{
         colorClass: 'uni-bg-red',
-        url: 'https://img1.baidu.com/it/u=2976758652,1214725124&fm=253&fmt=auto&app=138&f=JPEG?w=607&h=405',
+        url: 'https://chenmeijia.top/static/lunbo1.png',
         content: '内容 A'
       },
         {
           colorClass: 'uni-bg-green',
-          url: 'https://qiniu-web-assets.dcloud.net.cn/unidoc/zh/shuijiao.jpg',
+          url: 'https://chenmeijia.top/static/lunbo2.png',
           content: '内容 B'
         },
         {
           colorClass: 'uni-bg-blue',
-          url: 'https://qiniu-web-assets.dcloud.net.cn/unidoc/zh/shuijiao.jpg',
+          url: 'https://chenmeijia.top/static/lunbo3.png',
           content: '内容 C'
         }
       ],
@@ -99,7 +99,9 @@ export default {
 
         }*/
     await uni.authorize({scope: 'scope.userLocation'})
-    let {longitude,latitude,address}=await uni.getLocation({type: 'gcj02'})
+    let {longitude,latitude,address}=await uni.getLocation({type: 'gcj02'}).catch(e=>{
+      throw '请打开定位'
+    })
     const res = await uni.request({
       url: `https://apis.map.qq.com/ws/geocoder/v1/`,
       data: {
@@ -116,9 +118,18 @@ export default {
     u.location={longitude,latitude}
     uni.setStorageSync('loc',{longitude,latitude})
     uni.setStorageSync('city',u.city)
-    await u.updateById(uni.getStorageSync('uid'))
+    u=await u.updateById(uni.getStorageSync('uid'))
+    uni.setStorageSync('avatar', u.avatar)
+    uni.setStorageSync('name', u.name)
+    uni.setStorageSync('type', u.type)
   },
   methods: {
+    jishi(id,name,price,src){
+      if (uni.getStorageSync('type')==1){
+        throw '技师无法操作'
+      }
+      this.to(`/pages/jishi/jishi?id=${id}&name=${name}&price=${price}&src=${encodeURIComponent(src)}`)
+    },
     change(e) {
       this.current = e.detail.current
     },

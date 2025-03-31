@@ -5,6 +5,15 @@ export class ChatStore {
     constructor() {
         this.unreadMap = uni.getStorageSync('unreadMap') || {};
     }
+    hide(uid){
+        delete this.unreadMap[uid]
+        uni.setStorageSync('unreadMap',this.unreadMap)
+    }
+    del(uid){
+        delete this.unreadMap[uid]
+        uni.setStorageSync('unreadMap',this.unreadMap)
+        uni.removeStorage({key:`messages-${uid}`})
+    }
     chat(uid){
 
         this.messages = uni.getStorageSync(`messages-${uid}`) ||[];
