@@ -1,29 +1,57 @@
-function getAllMethodsDeep(obj) {
-    const methods = new Set();
-    let currentProto = obj;
+import * as ts from "typescript";
+function parseAst(classString) {
+    const sourceFile = ts.createSourceFile(
+        'temp.ts',
+        classString,
+        ts.ScriptTarget.Latest,
+        true
+    );
+    let name=''
+    let attr=[]
+    let fns=[
+        'add','del','update','get','gets',
+        'getById','updateById','delById'
+    ]
+    function visit(node) {
+        if (ts.isClassDeclaration(node)) {
+             name = node.name?.getText(sourceFile) || "<Anonymous Class>";
+            node.members.forEach(member => {
+                // 提取方法信息（原有逻辑）
+                if (ts.isMethodDeclaration(member)) {
+                    const methodName = member.name?.getText(sourceFile) || "<Anonymous Method>";
+                    fns.push(methodName)
+                    member.parameters.forEach((param, index) => {
+                        const paramName = param.name.getText(sourceFile);
+                        const paramType = param.type?.getText(sourceFile) || "any";
+                        const isOptional = param.questionToken ? "?" : "";
+                    });
+                }
 
-    do {
-        Reflect.ownKeys(currentProto).forEach(prop  => {
-            if (prop !== 'constructor' && typeof currentProto[prop] === 'function') {
-                methods.add(prop);
-            }
-        });
-        currentProto = Object.getPrototypeOf(currentProto);
-    } while (currentProto && currentProto !== Object.prototype);
-
-    return Array.from(methods);
+                // 新增：提取属性信息
+                else if (ts.isPropertyDeclaration(member)) { // [!code ++]
+                    const propName = member.name.getText(sourceFile); // [!code ++]
+                    attr.push(propName)
+                    // 获取类型（如未显式声明类型则为 any） // [!code ++]
+                    const propType = member.type?.getText(sourceFile) || "any"; // [!code ++]
+                    // 获取修饰符（public/private/readonly 等） // [!code ++]
+                    const modifiers = member.modifiers?.map(mod => mod.getText(sourceFile)).join(' ') || ''; // [!code ++]
+                    // 判断是否可选 // [!code ++]
+                    const isOptional = member.questionToken ? "?" : ""; // [!code ++]
+                }
+            });
+        }
+        ts.forEachChild(node, visit);
+    }
+    visit(sourceFile);
+    return {name,attr,fns}
 }
 function rpc_proxy(mode) {
     return {
         name: 'proxy',
         async transform(code, id) {
             if (id.includes('/src/api')&&id.includes('.ts')) {
-                let clazzNmaes=id.split('/')
-                let clazz = Object.values(await import(`../../src/api/${clazzNmaes[clazzNmaes.length-1]}`))[0]
-                let obj= new clazz()
-                let name=obj.constructor.name
-                let attr=Object.keys(obj)
-                let fns=getAllMethodsDeep( obj)
+                let {name,attr,fns}=parseAst( code)
+                console.log(name,attr,fns)
                 let aa=null
                 if (mode=='adm'){
                     aa=fns.map(x=>`async ${x}(...args){
@@ -57,7 +85,7 @@ function rpc_proxy(mode) {
                             }
 `
                 code=code.replaceAll('_','')
-                console.log('code:',code)
+                //console.log('code:',code)
                 return {
                     code: code,
                     map: null // 不生成sourcemap
