@@ -1,6 +1,6 @@
 <template>
   <view class="container">
-    <uni-section title="技师入住" type="line">
+    <uni-section title="师傅入住" type="line">
       <view class="example">
         <!-- 基础用法，不包含校验规则 -->
         <uni-forms ref="baseForm" :modelValue="baseFormData">
@@ -206,10 +206,8 @@ export default {
       }
       let {code} = await uni.login({provider: 'weixin'});
       this.u.type=1
-      let {uid, token} = await this.u.login(code)
-      console.log('jwt token:', token)
-      uni.setStorageSync('token', token)
-      uni.setStorageSync('uid', uid)
+      await this.u.updateById(uni.getStorageSync('uid'))
+      uni.setStorageSync('type',this.u.type)
       uni.reLaunch({  url: '/pages/me/me' })
       /*      this.$refs[ref].validate().then(async res => {
               console.log('success', res);

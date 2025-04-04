@@ -1,7 +1,7 @@
 import {Base, getsql} from "../core/Base.ts";
 import {createOrder, parseXml} from "../core/pay.ts";
 import {User} from "./User.ts";
-import {ctx} from "../core/oapi.ts";
+import {ctx, olog, server} from "../core/oapi.ts";
 export class Order extends Base<Order>{
     id:bigint
     uid:bigint
@@ -15,44 +15,46 @@ export class Order extends Base<Order>{
     created_at:Date
     updated_at:Date
     async getByStaffId(id){
+        olog.info('hi!')
+        console.log('ctx',ctx())
         return await this.gets`staff_id=${id}`
     }
     async getByUid(id){
         return await this.gets`uid=${id}`
     }
-    async cb(){
-        let req=ctx("req")
-        let r=await parseXml(await req.text())
-        console.log('cb:-------')
-        // 处理订单逻辑
-        console.log(`校验成功，req:${r}`);
+    async cb(xml){
+        let r=await parseXml(xml)
         this.status=1n
-        let o=await this.update`prepay_id='${r.prepay_id}'`
-        console.log('new obj:')
-        // 返回成功响应
-        return new Response(
-            '<xml><return_code><![CDATA[SUCCESS]]></return_code></xml>',
-            {headers: {'Content-Type': 'application/xml'}}
-        );
+        let [rsp]=await this.update`out_trade_no=${r.out_trade_no}`
+        let u= new User()
+        u=await u.getById(rsp.uid)
+        server.publish(rsp.staff_id, JSON.stringify({
+            uid:u.id,
+            name:u.name,
+            icon:u.avatar,
+            msg: '师傅你好，我已下单，请你按时过来',
+            time:new Date().getTime()
+        }));
+        server.publish(rsp.staff_id, JSON.stringify({
+            uid:u.id,
+            name:u.name,
+            icon:u.avatar,
+            msg: u.location,
+            time:new Date().getTime()
+        }));
+        return '<xml><return_code><![CDATA[SUCCESS]]></return_code></xml>';
     }
-    async cbRecharge(){
-        let req=ctx("req")
-        let r=await parseXml(await req.text())
-        console.log('cbRecharge:-------',r.out_trade_no)
-        let o=new Order()
-        o.status=1n
-        let sql=getsql()
-        let o1=await sql`update "Order" set status=1 where out_trade_no=${r.out_trade_no} RETURNING *`
-
-        let u=new User()
-        let u1=await u.getById(o1.uid)
-        u.balance=parseFloat(u1.balance)+parseFloat(o1.total)
+    async cbRecharge(xml){
+        let r=await parseXml(xml)
+        console.log('r:',r)
+        this.status=1n
+        let [o]=await this.update`out_trade_no=${r.out_trade_no}`
+        let u= new User()
+        let u1=await u.getById(o.uid)
+        u.balance=parseFloat(u1.balance)+parseFloat(o.total)
         await u.updateById(u1.id)
         // 返回成功响应
-        return new Response(
-            '<xml><return_code><![CDATA[SUCCESS]]></return_code></xml>',
-            {headers: {'Content-Type': 'application/xml'}}
-        );
+        return '<xml><return_code><![CDATA[SUCCESS]]></return_code></xml>';
     }
     async create(cb='cb',giftAmount=0){
         console.log('cb:',cb)
@@ -71,6 +73,7 @@ export class Order extends Base<Order>{
         this.uid=u.id
         this.prepay_id=p['prepay_id']
         this.total=this.total+giftAmount
+        console.log(this)
         await this.add()
         return p
     }

@@ -106,7 +106,6 @@ export default {
     this.chatStore.chat(id)
   },
   onShow() {
-    this.initWs()
     console.log('show')
   },
   methods: {

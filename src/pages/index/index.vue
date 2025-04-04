@@ -12,10 +12,10 @@
       <uni-list>
         <view  class="service-card" v-for="{id,src,name,timespan,price,old_price,sells,info_src} in list">
           <image :src="src"
-                 @click="to(`/pages/index/spu_info?id=${id}&url=${encodeURIComponent(info_src)}`)"
+                 @click=""
                  class="service-img"
                  mode="aspectFill"></image>
-          <view class="content-wrapper" @click="to(`/pages/index/spu_info?id=${id}&url=${encodeURIComponent(info_src)}`)">
+          <view class="content-wrapper" @click="">
             <view class="title">{{name}}</view>
             <view class="duration-badge">
               <uni-badge :text="timespan+'分钟'"
@@ -90,6 +90,7 @@ export default {
     }
   },
   async onLoad(options) {
+    await this.initWs()
     console.log('chatStore:',this.chatStore)
     let spu=new Spu()
     this.list=await spu.gets()

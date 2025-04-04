@@ -9,7 +9,7 @@
       <input
           class="search-input"
           v-model="searchName"
-          placeholder="输入技师名称"
+          placeholder="输入师傅名称"
           @confirm="search"
       />
       <button

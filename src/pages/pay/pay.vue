@@ -122,7 +122,7 @@ const handlePay =async () => {
   let order = new Order()
   order.staff_id=staff_id.value
   order.name = goodsList[0].title
-  order.total =0.01 //parseFloat(totalPrice.value)
+  order.total =parseFloat(totalPrice.value)
   order.info={
     jishi:uname.value,
     name:uni.getStorageSync('name'),
@@ -133,19 +133,8 @@ const handlePay =async () => {
   }
   let p = await order.create()
   await uni.requestPayment(p)
-  if (chatStore.unreadMap[staff_id.value]){
-    chatStore.unreadMap[staff_id.value].msg='你好技师，我已下单，请你按时过来'
-    chatStore.unreadMap[staff_id.value].time=new Date().getTime()
-  }else {//第一次消息
-    chatStore.unreadMap[staff_id.value]={
-      uid: staff_id.value,
-      name: uname.value,
-      icon: avatar.value,
-      time: new Date().getTime(),
-      msg: '你好技师，我已下单，请你按时过来'
-    }
-  }
-  uni.setStorageSync('unreadMap',chatStore.unreadMap)
+  chatStore.send(staff_id.value,'师傅你好，我已下单，请你按时过来')
+
   uni.redirectTo({  url: '/pages/order/order' })
 /*  uni.showModal({
     title: '支付确认',

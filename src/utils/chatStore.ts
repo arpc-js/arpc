@@ -1,7 +1,11 @@
+import {reactive, computed, watchEffect} from "vue"
+import type {ComputedRef} from "@vue/runtime-core";
+
 export class ChatStore {
     scrollTop=0
     unreadMap={}
     messages=[]
+    totalUnread:ComputedRef<unknown>
     constructor() {
         this.unreadMap = uni.getStorageSync('unreadMap') || {};
     }
@@ -21,7 +25,35 @@ export class ChatStore {
         if (this.unreadMap[uid]){this.unreadMap[uid]['count']=0}
         uni.setStorageSync('unreadMap',this.unreadMap)
     }
-    receiveMsg(msg,){
+    send(to,msg){
+        let msglocal={
+            uid: uni.getStorageSync('uid'),
+            name: uni.getStorageSync('name'),
+            icon: uni.getStorageSync('avatar'),
+            time: new Date().getTime(),
+            msg: msg
+        }
+        const pages = getCurrentPages();
+        const currentPage = pages[pages.length - 1];
+        if (currentPage.route.includes('chat')){
+            msglocal['count']=0
+            this.unreadMap[to]=msglocal
+            uni.setStorageSync('unreadMap',this.unreadMap)
+            this.messages.push(msglocal)
+            uni.setStorageSync(`messages-${to}`,this.messages)
+        }else {
+            let unread=this.unreadMap[to]||{count:0}
+            msglocal['count']=unread['count']+1
+            this.unreadMap[to]=msglocal
+            uni.setStorageSync('unreadMap',this.unreadMap)
+
+            let msgs = uni.getStorageSync(`messages-${to}`) ||[]
+            msgs.push(msglocal)
+            uni.setStorageSync(`messages-${to}`,msgs)
+        }
+        this.scrollTop=this.scrollTop+100
+    }
+    receive(msg){
         // 获取当前页面路由路径
         const pages = getCurrentPages();
         const currentPage = pages[pages.length - 1];

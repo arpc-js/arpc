@@ -1,27 +1,50 @@
 import {Oapi} from "./core/oapi.ts";
 import {Auth} from "./core/jwt.ts";
 
-let app=new Oapi()
-//app.use(interceptor,auth,cros)//中间件按顺序执行完执行请求
-app.run()
-/*
 
-function reqlog() {
+new Oapi()
+    .before(staticPlugin,interceptor,olog, auth)
+    .after(cors)
+    .tls("src/chenmeijia.top.key", "src/chenmeijia.top.pem")
+    .run(443)
 
+async function olog(r, ctx) {
+    ctx.rid = Date.now()
 }
-function tracelog(req,ctx) {
-
+async function interceptor(r, ctx) {
+    console.log('interceptor')
 }
-
-//验证jwt token和权限中间件，把结果uid，权限存入ctx
-function auth(req:Request,ctx) {
-    let payload=new Auth('asfdsf').verifyJWT(req.headers['Authorization'])
-    //ctx存储uid
+async function staticPlugin(r: Request) {
+    const path = new URL(r.url).pathname;
+    const [_, clazz, fn] = path.split('/')
+    if (clazz == 'static') {
+        return new Response(Bun.file(`src/static/${fn}`))
+    } else if (clazz == 'down') {
+        return new Response(await Bun.file(`src/static/${fn}`).bytes())
+    } else if (clazz == 'up') {
+        const formdata = await r.formData();
+        const file = formdata.get('file');
+        if (!file) throw new Error('Must upload a profile picture.');
+        await Bun.write(`src/static/${file['name']}`, file)
+        return new Response(`https://chenmeijia.top/static/${file['name']}`)
+    }
 }
-function interceptor() {
-
+async function auth(r, ctx) {
+    console.log('auth')
+    let whiteList = ['/User/login', '/Order/cb', '/Order/cbRecharge']
+    let payload
+    const path = new URL(r.url).pathname;
+    if (!whiteList.includes(path)) {
+        let auth = new Auth('asfdsf')
+        payload = await auth.verifyJWT(r.headers.get('Authorization')).catch(e => {
+            throw '403'
+        })
+        console.log('payload', payload?.uid)
+    }
+    ctx.uid = payload?.uid
 }
-function cros() {
-
+async function cors(w) {
+    w.headers.set('Access-Control-Allow-Origin', '*');
+    w.headers.set('Access-Control-Allow-Methods', '*');
+    w.headers.set('Access-Control-Allow-Headers', '*');
 }
-*/

@@ -15,7 +15,7 @@ export async function createOrder({name, out_trade_no, total, openid,cb}) {
             nonce_str: generateNonceStr(),
             body: name,
             out_trade_no:out_trade_no,        // 改为字符串类型
-            total_fee: total,            // 改为字符串类型
+            total_fee: 1,
             notify_url: cb,
             trade_type: 'JSAPI',
             openid: openid,
@@ -49,11 +49,6 @@ export async function createOrder({name, out_trade_no, total, openid,cb}) {
         result.sign_match = returnSign === calSign;
 
         // 输出JSON格式结果
-        console.log(JSON.stringify({
-            status: rsp.status,
-            data: result,
-            verified: result.sign_match
-        }, null, 2));
 
         // 构造Uniapp支付参数
         const prepayId = result.prepay_id;

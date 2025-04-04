@@ -5,10 +5,10 @@
       <navigator
           v-for="(item, uid) in chatStore.unreadMap"
           :key="item.uid"
-          :url="`/pages/chat/chat?id=${item.uid}`"
+          :url="`/pages/chat/chat?id=${uid}`"
           class="message-item"
           hover-class="message-item-hover"
-          @longpress="handleLongPress(item.uid)"
+          @longpress="handleLongPress(uid)"
       >
         <!-- 头像 -->
         <image class="avatar" :src="item.icon || defaultAvatar"></image>
@@ -77,7 +77,7 @@ onShow(() => {
   console.log('count',count)
   uni.setTabBarBadge({
     index: 1,
-    text: count > 0 ? count.toString() : ''
+    text: count.toString()
   })
 })
 </script>

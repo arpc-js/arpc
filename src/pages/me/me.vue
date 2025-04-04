@@ -32,7 +32,14 @@
             thumb-size="20"
         />
       </navigator>
-
+      <navigator url='/pages/jishi/register'>
+        <uni-list-item
+            title="师傅入驻"
+            showArrow
+            thumb="/static/icons/pay.png"
+            thumb-size="20"
+        />
+      </navigator>
     </uni-list>
     <navigator url='/pages/me/setting'>
       <uni-list-item
@@ -48,9 +55,9 @@
     <view class="logout" @click="clearStorage">
       <text class="logout-text">清缓存</text>
     </view>
-    <view class="logout" @click="handleLogout">
-      <text class="logout-text">退出登录</text>
-    </view>
+<!--    <view class="logout" @click="handleLogout">
+      <text class="logout-text">退出</text>
+    </view>-->
   </view>
 </template>
 
