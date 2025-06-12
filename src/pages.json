@@ -110,30 +110,8 @@
     "enablePullDownRefresh": true
   }
 }
-      ,
-      {
-  "path": "pages/videoCall/videoCall",
-  "style": {
-    "navigationBarTitleText": "",
-    "enablePullDownRefresh": true
-  }
-}
-      ,
-      {
-  "path": "voiceCall/voiceCall",
-  "style": {
-    "navigationBarTitleText": "",
-    "enablePullDownRefresh": true
-  }
-}
-		,
-		{
-  "path": "pages/voiceCall/voiceCall",
-  "style": {
-    "navigationBarTitleText": "",
-    "enablePullDownRefresh": true
-  }
-}
+
+		
       ,
       {
   "path": "pages/index/spu_info",

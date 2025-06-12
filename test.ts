@@ -1,3 +1,3 @@
-import {Spu} from "./src/api/Spu.ts";
-let spu=new Spu()
-console.log(spu)
+import {User} from "./src/api/User.ts";
+
+User.migrate()

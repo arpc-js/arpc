@@ -1,6 +1,6 @@
-import {Base} from "../core/Base.ts";
+import {OdbBase} from "../core/OdbBase.ts";
 
-export class Spu extends Base<Spu>{
+export class Spu extends OdbBase<Spu>{
     id:bigint
     name:string
     src:string

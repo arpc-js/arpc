@@ -67,7 +67,7 @@ import {User} from "../../api/User";
 export default {
   data() {
     return {
-      user: null,
+      user: new User(),
       userInfo: {
         avatar: 'https://wx3.sinaimg.cn/mw690/006i0nC8ly1hquk6owrwoj31o01o0qs9.jpg',
         nickname: '微信用户',
@@ -76,14 +76,8 @@ export default {
     }
   },
   async onLoad(options) {
-    let u = new User()
-    let rsp = await u.getById(uni.getStorageSync('uid'))
-    this.user = rsp
-    console.log(rsp)
-    //await uni.openLocation({latitude: latitude, longitude: longitude})
-    //调用云函数
-    //自研云函数代替http
-    //表面前端操作数据库，其实是云端操作
+    console.log(await this.user.gets(`id>${1} and name='${'李白'}'`))
+    this.user = await this.user.getById(uni.getStorageSync('uid'))
   },
   methods: {
     navigateToUserProfile() {

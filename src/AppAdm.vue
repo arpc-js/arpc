@@ -1,23 +1,17 @@
 <script setup lang="ts">
-
-import Test from "./views/Test.vue";
+import { RouterView } from 'vue-router'
 </script>
-
 <template>
-<Test></Test>
+  <RouterView />
 </template>
-
-<style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
-}
+<style>
+/*.el-pagination {/o78900xx
+  position: fixed;
+  bottom: 75px; !* Distance from the bottom of the viewport *!
+  left: 55%;
+  transform: translateX(-50%);
+  z-index: 100;
+}*/
+</style>
+<style >
 </style>

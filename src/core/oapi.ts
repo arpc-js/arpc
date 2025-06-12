@@ -1,9 +1,4 @@
 import {Auth} from "./jwt.ts";
-import {parseXml} from "./pay.ts";
-import {Order} from "../api/Order.ts";
-import {getsql} from "./Base.ts";
-import {User} from "../api/User.ts";
-
 let asyncLocalStorage = new (require('async_hooks').AsyncLocalStorage)()
 
 function ctx(k: 'req' | 'session' | 'uid'=null): Request | any {
@@ -167,14 +162,15 @@ export class Oapi {
                     return rsp;//成功返回云函数结果，失败抛出异常,json.args
                 } catch (e) {
                     console.log('err:', e.message || e)
+                    console.log('err:', e)
                     return new Response(e.message || e, {status: 500});
                 }
                 return Response.json('eee')
             },
-            tls: {
-                key: Bun.file(oapi.key),
-                cert: Bun.file(oapi.cert),
-            },
+            // tls: {
+            //     key: Bun.file(oapi.key),
+            //     cert: Bun.file(oapi.cert),
+            // },
             websocket: {
                 open(ws: any) {
                     const msg = `用户${ws.data.uid}你好,欢迎使用妲己直聊`;

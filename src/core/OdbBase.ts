@@ -1,5 +1,3 @@
-import {SQL} from "bun";
-
 let sql
 let asyncLocalStorage= new (require('async_hooks').AsyncLocalStorage)()
 function ctx(k: 'req' | 'session' | 'userId'|'tx'): Request | any {
@@ -45,16 +43,33 @@ export function getsql() {
 }
 
 export class OdbBase<T> {
-    static async migrate() {
+    static async migrate(pname='',created=[]) {
+        //有pname说明我是子表，子表的pname是多个代表多对多要额外建立关系表
         //补充改表名，添加字段，删除字段，修改字段名称和类型，索引，自动迁移
+        if (created.includes(this.name)){
+            return
+        }
+        created.push(this.name)
         delete this['meta']['plugin']
-        console.log(this['meta'])
-        let body = Object.entries(this['meta']).map(([k, v]) => {
+        let sql=getsql()
+        let attrs=this['meta']
+        if (attrs[pname+'s']?.includes('[]')){
+            //子有多个父多对多，有bug还可能是多对1，两边都是多
+            //一对多，反过来看一对一，1对多
+            //一对多，反过来看1多多，代表多对多
+            let list=[pname,this.name].sort()
+            let rtable=`${list[0]}_${list[1]}`
+            let statement=`create table if not exists "${rtable}"(${pname}_id integer,${this.name}_id integer)`
+            await sql.unsafe(statement)
+        }
+        let body = Object.entries(attrs).map(([k, v]) => {
             let type = this['meta'][k]
             if (k == 'id') {
                 return `id SERIAL PRIMARY KEY`
-            } else if (Array.isArray(v)) {
+            } else if (type == 'bigint[]') {
                 return `"${k}" integer []`
+            } else if (type == 'string[]') {
+                return `"${k}" varchar []`
             } else if (type == 'any') {
                 return `"${k}" jsonb`
             } else if (type == 'bigint') {
@@ -65,42 +80,59 @@ export class OdbBase<T> {
                 return `"${k}" double precision`
             }else if (type == 'Date') {
                 return `"${k}" TIMESTAMPTZ`
-            }else {//关系类型，建立关系表
+            }else {//操作子表
                 type=type.replaceAll('[]','')
-                console.log('11111111111111')
-                const sorted = [this.name, type].sort();
-                let relation_table=`${sorted[0]}_${sorted[1]}`
-                console.log(`relation_table:${relation_table}`)
-                console.log(`sorted:${sorted}`)
-                let statement=`create table if not exists "${relation_table}"(${sorted[0]}_id integer,${sorted[1]}_id integer)`
-                let sql=getsql()
-                sql.unsafe(statement).then(res=>{console.log(res)})
+                import(`../api/${type}`).then((cls) => {
+                    const targetClass = cls[type]
+                    targetClass.migrate(this.name.toLowerCase(),created)
+                })
                 return ''
             }
         })
-        console.log(body)
         body=body.filter(x=>{return x!=''})
         let statement=`create table if not exists "${this.name}"(${body})`
         console.log(statement)
-        let sql=getsql()
-        let rsp = await sql.unsafe(statement)
-        console.log(rsp)
+        await sql.unsafe(statement)
     }
 
-    //递归插入所有子元素返回id，插入自己返回自己，关系表关联id
-    //若子元素是gets(1)，或者是id,查询存在后插入父元素，关系表关联
-    //子元素可以是add，update，get形式，不支持删
-    //子有id是改，无id是增，只有id为为查
+    //先插入主表，递归插入子表，递归分2种，1对1/多和多对多，多对多多了个关系表
     async add() {
         const table = this.constructor.name; // 动态获取表名（如 'User'）
         let sql=getsql()
         //@ts-ignore
         const { id, ...rest } = this;
+
         const [newUser] = await sql`INSERT INTO ${sql(table)} ${sql(rest)} RETURNING *`;
         this['id']=newUser['id']
+        //递归插入子表
+        //sub.addWithPid(pid)
+        //若list的子对象不需要递归，sub.addManyWithPid(pid)，需要递归循环递归
         return this
     }
+    async addWithPid() {
+        const table = this.constructor.name; // 动态获取表名（如 'User'）
+        let sql=getsql()
+        //@ts-ignore
+        const { id, ...rest } = this;
 
+        const [newUser] = await sql`INSERT INTO ${sql(table)} ${sql(rest)} RETURNING *`;
+        this['id']=newUser['id']
+        //递归插入子表
+        //sub.add()
+        return this
+    }
+    async addManyWithPid() {
+        const table = this.constructor.name; // 动态获取表名（如 'User'）
+        let sql=getsql()
+        //@ts-ignore
+        const { id, ...rest } = this;
+
+        const [newUser] = await sql`INSERT INTO ${sql(table)} ${sql(rest)} RETURNING *`;
+        this['id']=newUser['id']
+        //递归插入子表
+        //sub.add()
+        return this
+    }
     async addOne(obj) {
         const table = obj.constructor.name; // 动态获取表名（如 'User'）
         let sql=getsql()
@@ -131,14 +163,23 @@ export class OdbBase<T> {
         let [one]=await sql`SELECT ${cols} FROM ${sql(table)} ${where}`
         return one
     }
+    //meta数据格式:name: 'string',posts: 'Post[]', // 多对多或一对多，profile: 'Profile' // 一对一
+    //class的结构和meta类型结构类似prisam结构
+    //sel(***)自动构建嵌套子对象
+    //构建主表sql
+    //递归构建子表joins和on条件//分1对1/多和多对多2中情况，多对多先join关系再join子表
+    //reduce聚合为嵌套json
+    //get,getwithType
     async gets(strings, ...values) {
+        let meta=this.constructor['meta']
         let sql=getsql()
         const table = this.constructor.name; // 动态获取表名（如 'User'）
         const cols = sql`*`; // 默认查询列
         // 动态生成 WHERE 条件（自动处理用户模板）
         const where = values.length > 0 ? sql`where ${sql(strings, ...values)}` : sql``;
         // 组合完整 SQL 并执行
-        return await sql`SELECT ${cols} FROM ${sql(table)} ${where} order by id desc`;
+        await sql`SELECT ${cols} FROM ${sql(table)} ${where} order by id desc`;
+        return
     }
     async getById(id=0) {
         let sql=getsql()
@@ -268,4 +309,9 @@ async function updater(data) {
         }
     }
     return p.id
+}
+function extractAndRemove(obj, key) {
+    const value = obj[key];
+    delete obj[key];
+    return value;
 }

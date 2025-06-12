@@ -1,10 +1,11 @@
-import {Base, getsql} from "../core/Base.ts";
+import {OdbBase, getsql} from "../core/OdbBase.ts";
 import {createOrder, parseXml} from "../core/pay.ts";
 import {User} from "./User.ts";
 import {ctx, olog, server} from "../core/oapi.ts";
-export class Order extends Base<Order>{
+export class Order extends OdbBase<Order>{
     id:bigint
-    uid:bigint
+    user_id:bigint
+    user:User
     staff_id:bigint
     name:string
     total:number

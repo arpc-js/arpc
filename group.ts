@@ -1,48 +1,54 @@
-// 原始数据
-const masterData = [
-    { id: 'M1', name: '主表1' },
-    { id: 'M2', name: '主表2' }
+const rawData = [
+    { id: 'M1', name: 'm1name', sub_id: 1, item: '子项A', value: 10, spu_id: 1, spu_name: 'test1' },
+    { id: 'M1', name: 'm1name', sub_id: 1, item: '子项A', value: 10, spu_id: 2, spu_name: 'test2' },
+    { id: 'M1', name: 'm1name', sub_id: 2, item: '子项B', value: 10, spu_id: 3, spu_name: 'test3' },
+    { id: 'M1', name: 'm1name', sub_id: 2, item: '子项B', value: 10, spu_id: 4, spu_name: 'test4' }
 ];
 
-const detailData = [
-    { mid: 'M1', item: '子项A', value: 10 },
-    { mid: 'M1', item: '子项B', value: 20 },
-    { mid: 'M2', item: '子项C', value: 30 }
-];
+// 聚合函数
+function aggregateData(data) {
+    const resultMap = {};
 
-/*// 1. 使用 groupBy 对子表按外键分组
-const groupedDetails = Object.groupBy(
-    detailData,
-    ({ mid }) => mid // 按主表ID分组
-);
+    data.forEach(item => {
+        const { id, name, sub_id, item: subItemName, value, spu_id, spu_name } = item;
 
-// 2. 合并到主表
-const aggregated = masterData.map(master => ({
-    ...master,
-    details: groupedDetails[master.id] || [] // 处理空子表情况
-}));
+        // 初始化主项
+        if (!resultMap[id]) {
+            resultMap[id] = {
+                id,
+                name,
+                subItems: {}
+            };
+        }
 
-console.log(JSON.stringify(aggregated));*/
-/*
-[
-  { id: 'M1', name: '主表1', details: [...] },
-  { id: 'M2', name: '主表2', details: [...] }
-]
-*/
-const aggregateData = (master, details) => {
-    // 1. 创建子表索引
-    const detailMap = details.reduce((acc, detail) => {
-        const key = detail.mid;
-        (acc[key] = acc[key] || []).push(detail);
-        return acc;
+        const mainItem = resultMap[id];
+
+        // 初始化子项
+        if (!mainItem.subItems[sub_id]) {
+            mainItem.subItems[sub_id] = {
+                sub_id,
+                item: subItemName,
+                value,
+                spus: []
+            };
+        }
+
+        // 添加 SPU
+        mainItem.subItems[sub_id].spus.push({
+            spu_id,
+            spu_name
+        });
     });
-    // 2. 合并主表数据
-    return master.map(item => ({
-        ...item,
-        details: detailMap[item.id] || []
+
+    // 转换为最终结构
+    return Object.values(resultMap).map(mainItem => ({
+        //@ts-ignore
+        ...mainItem,
+        //@ts-ignore
+        subItems: Object.values(mainItem.subItems)
     }));
-};
+}
 
 // 使用示例
-const result = aggregateData(masterData, detailData);
-console.log(result)
+const aggregatedData = aggregateData(rawData);
+console.log(JSON.stringify(aggregatedData, null, 2));

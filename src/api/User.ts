@@ -1,6 +1,15 @@
-import {Base} from "../core/Base.ts";
+import {OdbBase} from "../core/OdbBase.ts";
 import {Auth} from "../core/jwt.ts";
-export class User extends Base<User>{
+import type {Role} from "./Role.ts";
+import type {Order} from "./Order.ts";
+//1对1，1对多，多对1，引入外键表示谁是1
+//2个list代表多对多
+//新增，主插入，子是对象，传入id插入子表，是数组：1对多循环插入，多对多，循环插入时再插入关系表
+//新增可以是新对象，可以是选择旧id(一般用于多对多)，
+//删除，根据外键1对1/多级联删除，多对多不能级联删除
+//改:主表修改，子表可以是增删改
+//查模仿eql，递归join然后聚合
+export class User extends OdbBase<User>{
     id:bigint
     openid:string
     name:string
@@ -15,6 +24,8 @@ export class User extends Base<User>{
     created_at:Date
     updated_at:Date
     city:string
+    roles:Role[]
+    order:Order[]
     //定义的登陆云函数
     async getByType(tp,name){
         if (name){

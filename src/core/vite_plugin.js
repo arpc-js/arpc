@@ -55,19 +55,19 @@ function rpc_proxy(mode) {
                 let aa=null
                 if (mode=='adm'){
                     aa=fns.map(x=>`async ${x}(...args){
-              let rsp=await fetch('http://chenmeijia.top/${name}/${x}',{
+              let rsp=await fetch('http://127.0.0.1:3000/${name}/${x}',{
                   method: 'POST',
                   body:JSON.stringify({args:args})
               })
               if (rsp?.status!=200){
                   throw await rsp.text()
               }
-              return await rsp.json()
+              return reactive(await rsp.json())
               }`)
                 }else {
                     aa=fns.map(x=>`async ${x}(...args){
         const response = await uni.request({
-            url: 'https://chenmeijia.top/${name}/${x}',
+            url: 'https://127.0.0.1:3000/${name}/${x}',
             method: 'POST',
             header:{'Authorization':uni.getStorageSync('token')},
             data: {attr:this,args:args}
@@ -75,11 +75,16 @@ function rpc_proxy(mode) {
         if (response.statusCode  === 500) {
             throw response.data
         }
-        return response.data;
+        return reactive(await rsp.json());
               }`)
                 }
                 //User源代码被替换了
-                code = `export class ${name} {
+                code = `
+                import {reactive} from "vue";
+                export class ${name} {
+                                constructor() {
+                                   return reactive(this)
+                                }
                                 ${attr.join(';')}
                                 ${aa.join('\n')}
                             }

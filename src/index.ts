@@ -3,10 +3,9 @@ import {Auth} from "./core/jwt.ts";
 
 
 new Oapi()
-    .before(staticPlugin,interceptor,olog, auth)
+    .before(staticPlugin,interceptor,olog)
     .after(cors)
-    .tls("src/chenmeijia.top.key", "src/chenmeijia.top.pem")
-    .run(443)
+    .run(3000)
 
 async function olog(r, ctx) {
     ctx.rid = Date.now()

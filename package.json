@@ -2,7 +2,7 @@
   "name": "uni-preset-vue",
   "version": "0.0.0",
   "scripts": {
-    "dev": "npm-run-all -p back dev:h5 adm wx",
+    "dev": "npm-run-all -p back adm",
     "back": "bun --watch run src/index.ts",
     "dev:custom": "uni -p",
     "adm": "vite --port 5174 --mode adm",
@@ -54,9 +54,13 @@
     "@dcloudio/uni-mp-xhs": "3.0.0-4030620241128001",
     "@dcloudio/uni-quickapp-webview": "3.0.0-4030620241128001",
     "@dcloudio/uni-ui": "^1.5.7",
+    "crypto": "^1.0.1",
+    "echarts": "^5.1.1",
     "pg": "^8.14.0",
     "vue": "^3.4.21",
-    "vue-i18n": "^9.1.9"
+    "vue-i18n": "^9.1.9",
+    "vue-router": "^4.5.1",
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "@dcloudio/types": "^3.4.8",
