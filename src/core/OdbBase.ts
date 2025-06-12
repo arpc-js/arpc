@@ -1,3 +1,4 @@
+import postgres from 'postgres'
 let sql
 let asyncLocalStorage= new (require('async_hooks').AsyncLocalStorage)()
 function ctx(k: 'req' | 'session' | 'userId'|'tx'): Request | any {
@@ -29,20 +30,23 @@ export function getsql() {
         if (typeof window==undefined){
             return
         }
-        const { SQL } = require("bun");
+/*        const { SQL } = require("bun");
         sql= new SQL({
             // Pool configuration
-            url: `postgres://postgres:root@127.0.0.1:5432/postgres`,
+            url: `postgres://postgres:postgres@156.238.240.143:5432/postgres`,
             max: 20, // Maximum 20 concurrent connections
             idleTimeout: 30, // Close idle connections after 30s
             maxLifetime: 3600, // Max connection lifetime 1 hour
             connectionTimeout: 10, // Connection timeout 10s
-        });
+        });*/
+        sql = postgres(`postgres://postgres:postgres@156.238.240.143:5432/postgres`) // will use psql environment variables
+
     }
     return ctx('tx')?ctx('tx'):sql
 }
 
 export class OdbBase<T> {
+    #sel: string[]//无法被枚举，无法被外部访问，只能get，set访问
     static async migrate(pname='',created=[]) {
         //有pname说明我是子表，子表的pname是多个代表多对多要额外建立关系表
         //补充改表名，添加字段，删除字段，修改字段名称和类型，索引，自动迁移
@@ -94,33 +98,109 @@ export class OdbBase<T> {
         console.log(statement)
         await sql.unsafe(statement)
     }
-
-    //先插入主表，递归插入子表，递归分2种，1对1/多和多对多，多对多多了个关系表
+    sel(...values: string[]){
+        //遍历values，若是对象扁平化展开，无限递归
+        this.#sel=values
+        return this
+    }
+    static sel(...values: string[]){
+        //创建对象
+        let clazz=this.name
+        let obj=null
+        return obj
+    }
+    getSel() {
+        this.#sel
+        const cols = sql`id, name`; // 默认查询列
+        return cols;
+    }
+    //分离子对象/数组，插入主表，所有子对象/数组插入子表
     async add() {
-        const table = this.constructor.name; // 动态获取表名（如 'User'）
-        let sql=getsql()
-        //@ts-ignore
-        const { id, ...rest } = this;
+        const table = this.constructor.name;
+        const sql = getsql();
+        const mainData = {};              // 主表字段
+        const childObjects = {};         // 一对一对象字段
+        const childArrays = {};          // 一对多数组字段
+        // 分离字段类型
+        for (const [k, v] of Object.entries(this)) {
+            if (v === null || v === undefined) continue;
+            if (Array.isArray(v)) {
+                childArrays[k] = v;
+            } else if (typeof v === 'object') {
+                childObjects[k] = v;
+            } else {
+                mainData[k] = v;
+            }
+        }
 
-        const [newUser] = await sql`INSERT INTO ${sql(table)} ${sql(rest)} RETURNING *`;
-        this['id']=newUser['id']
-        //递归插入子表
-        //sub.addWithPid(pid)
-        //若list的子对象不需要递归，sub.addManyWithPid(pid)，需要递归循环递归
-        return this
-    }
-    async addWithPid() {
-        const table = this.constructor.name; // 动态获取表名（如 'User'）
-        let sql=getsql()
-        //@ts-ignore
-        const { id, ...rest } = this;
+        // 插入主表
+        const [row] = await sql`INSERT INTO ${sql(table)} ${sql(mainData)} RETURNING *`;
+        this.id = row.id;
 
-        const [newUser] = await sql`INSERT INTO ${sql(table)} ${sql(rest)} RETURNING *`;
-        this['id']=newUser['id']
-        //递归插入子表
-        //sub.add()
-        return this
+        // 递归插入一对一子对象
+        for (const v of Object.values(childObjects)) {
+            await v.addWithPid(table, this.id);
+        }
+        // 递归插入一对多子对象数组
+        for (const arr of Object.values(childArrays)) {
+            for (const item of arr) {
+                    await item.addWithPid(table, this.id);
+            }
+        }
+
+        return this;
     }
+    //weekset解决循环依赖
+    //不是多对多增加外键，分离，插入主表，是否插入关系表，递归子对象/数组
+    async addWithPid(pname: string, pid: number, seen = new WeakSet()) {
+        if (seen.has(this)) return this;
+        seen.add(this);
+
+        const table = this.constructor.name;
+        const sql = getsql();
+
+        // 判断是否为多对多
+        const attrs = this.constructor['meta'] || {};
+        const isManyToMany = attrs[`${pname}s`]?true:false;
+        if (!isManyToMany) {
+            this[`${pname}_id`] = pid; // 一对多 / 一对一，直接写外键
+        }
+        // --- 分离字段 ---
+        const main = {}, oneToOne = {}, oneToMany = {};
+        for (const [k, v] of Object.entries(this)) {
+            if (Array.isArray(v)) oneToMany[k] = v;
+            else if (v && typeof v === 'object') oneToOne[k] = v;
+            else main[k] = v;
+        }
+
+        // 插入当前表
+        const [row] = await sql`INSERT INTO ${sql(table)} ${sql(main)} RETURNING *`;
+        this.id = row.id;
+
+        // 多对多：插入关系表
+        if (isManyToMany) {
+            const names = [pname, table].sort(); // user + role => role_user
+            const rtable = `${names[0]}_${names[1]}`;
+            const rdata = {
+                [`${pname}_id`]: pid,
+                [`${table}_id`]: this.id
+            };
+            await sql`INSERT INTO ${sql(rtable)} ${sql(rdata)} RETURNING *`;
+        }
+
+        // 🔁 递归一对一字段
+        for (const v of Object.values(oneToOne)) {
+            await v.addWithPid(table, this.id, seen);
+        }
+        // 🔁 递归一对多字段
+        for (const arr of Object.values(oneToMany)) {
+            for (const item of arr) {
+                await item.addWithPid(table, this.id, seen);
+            }
+        }
+        return this;
+    }
+
     async addManyWithPid() {
         const table = this.constructor.name; // 动态获取表名（如 'User'）
         let sql=getsql()
@@ -188,7 +268,7 @@ export class OdbBase<T> {
         // 动态生成 WHERE 条件（自动处理用户模板）
         // 组合完整 SQL 并执行
         id=id||this['id']
-        let [one]=await sql`SELECT ${cols} FROM ${sql(table)} where id=${id}`
+        let [one]=await sql`SELECT ${sql('id,name')} FROM ${sql(table)} where id=${id}`
         return one;
     }
     async getAnd() {
