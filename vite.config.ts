@@ -1,14 +1,33 @@
 import { defineConfig } from 'vite'
 import uni from '@dcloudio/vite-plugin-uni'
 import vue from '@vitejs/plugin-vue'
-import {switchIndex,rpc_proxy} from "./src/core/vite_plugin";
+import {rpc_proxy} from "./src/core/vite_plugin";
+import { createHtmlPlugin } from 'vite-plugin-html'
+import AutoImport from 'unplugin-auto-import/vite'
+import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 // @ts-ignore
 export default defineConfig(({ mode }) => {
-  // mode 参数即命令行传入的 --mode 值
+  const isVue = mode === 'adm'
+  const mainEntry = isVue ? '/src/main.vue.ts' : '/src/main.ts'
   return {
-    plugins: [uni(),
-      vue,rpc_proxy(mode),
-      switchIndex(mode)
+    //@ts-ignore
+    plugins: [
+      isVue ? vue() : uni(),
+      rpc_proxy(mode),
+      AutoImport({
+        resolvers: [ElementPlusResolver()],
+      }),
+      Components({
+        resolvers: [ElementPlusResolver()],
+      }),
+      createHtmlPlugin({
+        inject: {
+          data: {
+            mainEntry
+          }
+        }
+      })
     ],
   }
 })
