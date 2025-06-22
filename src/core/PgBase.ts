@@ -9,6 +9,9 @@ const sql = new Pool({
 })
 class BaseModel {
     id:bigint
+    created_at:Date
+    updated_at:Date
+    is_deleted:boolean //软删除，增加软删除方法，不能查is_deleted的数据
     #sel: any[] = [];
     #where: string | null = null;
     #onStatement: string | null = null;
@@ -84,27 +87,38 @@ class BaseModel {
     }
 
     async get(strings: TemplateStringsArray, ...values: any[]) {
-        console.log(strings)
-        console.log(values)
         const table = this.constructor.name.toLowerCase();
         const { selectCols, joins, args: joinArgs, paramCount, groupKeys, groupNames } = getSqlParts(this, joinTableMap);
-        //顺便返回每张连表，根据user_id,role_id，permission_id聚合json
-        let { statement: whereSql, args: whereArgs } = tagToPrepareStatement(strings, values, paramCount + 1);
-        whereSql = addTablePrefix(whereSql, table); // 自动给字段加表名前缀
+
+        let whereSql = '';
+        let whereArgs: any[] = [];
+        if (isTaggedTemplateCall(strings)) {
+            // 标签模板条件
+            const prepared = tagToPrepareStatement(strings, values, paramCount + 1);
+            whereSql = addTablePrefix(prepared.statement, table);
+            whereArgs = prepared.args;
+        } else if (typeof strings === 'number') {
+            // 按id查询
+            whereSql = `"${table}".id = $${paramCount + 1}`;
+            whereArgs = [strings];
+        } else if (typeof strings === 'object' && strings !== null) {
+            // 动态对象条件，拼 AND 关系，自动参数序号偏移
+            const conditions: string[] = [];
+            const args: any[] = [];
+            let idx = paramCount + 1;
+            for (const [key, val] of Object.entries(strings)) {
+                conditions.push(`"${table}".${key} = $${idx++}`);
+                args.push(val);
+            }
+            whereSql = conditions.join(' AND ');
+            whereArgs = args;
+        }
         const whereClause = whereSql ? ` WHERE ${whereSql}` : '';
 
         const text = `SELECT ${selectCols.join(', ')} FROM "${table}" ${joins.join(' ')}${whereClause}`;
         const allArgs = [...joinArgs, ...whereArgs];
-
-        console.log(text);
-        console.log(allArgs);
-
         const {rows} = await sql.query(text, allArgs);
-        //默认permission_id聚合成permissions，可以根据Role类里面的名称
-        console.log(rows)
-        //笛卡尔积聚合,groupNames默认groupKeys+s
-        console.log(`groupKeys:${groupKeys}`)
-        console.log(`groupNames:${groupNames}`)
+
         const grouped = dynamicGroup(rows, groupKeys,groupNames);
         return grouped;
     }
@@ -484,7 +498,13 @@ function dynamicGroup(rows, levels, names = []) {
 
     return groupLevel(rows, 0);
 }
-
+function isTaggedTemplateCall(strings) {
+    return (
+        Array.isArray(strings) &&
+        typeof strings.raw === 'object' &&
+        strings.raw.length === strings.length
+    )
+}
 
 
 
