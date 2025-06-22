@@ -1,6 +1,5 @@
 //@ts-ignore
 import { Pool } from 'pg'
-
 const sql = new Pool({
     user: 'postgres',
     password: 'postgres',
@@ -8,8 +7,8 @@ const sql = new Pool({
     host: '156.238.240.143',
     port: 5432,
 })
-
 class BaseModel {
+    id:bigint
     #sel: any[] = [];
     #where: string | null = null;
     #onStatement: string | null = null;
@@ -85,10 +84,13 @@ class BaseModel {
     }
 
     async get(strings: TemplateStringsArray, ...values: any[]) {
+        console.log(strings)
+        console.log(values)
         const table = this.constructor.name.toLowerCase();
-        const { selectCols, joins, args: joinArgs, paramCount } = getSqlParts(this, joinTableMap);
+        const { selectCols, joins, args: joinArgs, paramCount, groupKeys, groupNames } = getSqlParts(this, joinTableMap);
         //顺便返回每张连表，根据user_id,role_id，permission_id聚合json
-        const { statement: whereSql, args: whereArgs } = tagToPrepareStatement(strings, values, paramCount + 1);
+        let { statement: whereSql, args: whereArgs } = tagToPrepareStatement(strings, values, paramCount + 1);
+        whereSql = addTablePrefix(whereSql, table); // 自动给字段加表名前缀
         const whereClause = whereSql ? ` WHERE ${whereSql}` : '';
 
         const text = `SELECT ${selectCols.join(', ')} FROM "${table}" ${joins.join(' ')}${whereClause}`;
@@ -100,65 +102,197 @@ class BaseModel {
         const {rows} = await sql.query(text, allArgs);
         //默认permission_id聚合成permissions，可以根据Role类里面的名称
         console.log(rows)
-        //
-        const grouped = dynamicGroup(rows, ['user_id','role_id','permission_id'],['roles','permissions']);
+        //笛卡尔积聚合,groupNames默认groupKeys+s
+        console.log(`groupKeys:${groupKeys}`)
+        console.log(`groupNames:${groupNames}`)
+        const grouped = dynamicGroup(rows, groupKeys,groupNames);
         return grouped;
     }
-
-    mapRowsToJson(rows) {
-        const rootName = this.constructor.name.toLowerCase();
-        const childrenFields = this.#sel.filter(f => f instanceof BaseModel);
-        const mainFields = this.#sel.filter(f => typeof f === 'string' && f !== '**');
-
-        // 用 Map 根据主键聚合
-        const map = new Map();
-
-        for (const row of rows) {
-            // 主表ID作为聚合key
-            const rootId = row[`${rootName}_id`];
-            if (!rootId) continue;
-
-            let rootObj = map.get(rootId);
-            if (!rootObj) {
-                rootObj = {};
-                // 填充主表字段
-                for (const f of mainFields) {
-                    rootObj[f] = row[`${rootName}_${f}`];
+    //
+    //嵌套级联操作条件只能是id，因为id关联的关系
+    async update(strings: TemplateStringsArray, ...values: any[]) {
+        const table = this.constructor.name.toLowerCase();
+        const { main, oneToOne, oneToMany } = splitFields(this);
+        const setKeys = Object.keys(main)
+        const setClause = setKeys.map((k, i) => `"${k}" = $${i + 1}`).join(', ')
+        const setValues = Object.values(main)
+        const { statement: whereSql, args: whereArgs } = tagToPrepareStatement(strings, values, setValues.length + 1);
+        const whereClause = whereSql ? ` WHERE ${whereSql}` : '';
+        const text = `UPDATE "${table}" SET ${setClause} ${whereClause} RETURNING *`
+        const [rows] = await sql.query(text, [...setValues, ...whereArgs])
+        this.id = rows[0]?.id ?? this.id;
+        for (const v of Object.values(oneToOne)) {
+            //修改并维护关系,或者新增维护关系
+            v[`${table}_id`]=this.id
+            await v.upsert()
+        }
+        // 递归插入一对多子对象数组,或多对多
+        for (const arr of Object.values(oneToMany)) {
+            let sub_table=''
+            let ids=[]
+            let hasJoinTable
+            for (const item of arr) {
+                sub_table = item.constructor.name.toLowerCase();
+                const joinTableName = [table, sub_table].sort().join('_');
+                hasJoinTable = joinTableMap[joinTableName];
+                if (!hasJoinTable){//维护11，1n关系
+                    item[`${table}_id`]=this.id
                 }
-                // 初始化子对象数组
-                for (const childField of childrenFields) {
-                    rootObj[childField.constructor.name.toLowerCase() + 's'] = [];
+                let [row]=await item.upsert()
+                if (hasJoinTable){//维护多对多关系
+                    const rdata = {[`${table}_id`]: this.id, [`${sub_table}_id`]: row.id}
+                    await add(joinTableName,rdata)
                 }
-                map.set(rootId, rootObj);
+                ids.push(row.id)
             }
-
-            // 处理子对象
-            for (const childField of childrenFields) {
-                const childName = childField.constructor.name.toLowerCase();
-                const childIdKey = `${childName}_id`;
-
-                const childId = row[childIdKey];
-                if (!childId) continue;
-
-                // 检查是否已存在，避免重复添加
-                const childList = rootObj[childName + 's'];
-                if (!childList.find(c => c.id === childId)) {
-                    // 简单示例：只取id和name字段
-                    const childObj = {};
-                    for (const f of childField.getSel()) {
-                        if (typeof f === 'string' && f !== '**') {
-                            childObj[f] = row[`${childName}_${f}`];
-                        }
-                    }
-                    childList.push(childObj);
+            await deleteRemovedRelations(table, sub_table, this.id, ids, joinTableMap);
+        }
+        return rows[0];
+    }
+    async upsert(){
+        return this.id?await this.update`id=${this.id}`:await this.add()
+    }
+    async add() {
+        const table = this.constructor.name.toLowerCase();
+        const { main, oneToOne, oneToMany } = splitFields(this);
+        // 插入主表
+        const [row]=await add(table,main)
+        // 插入1对1，如果有id修改对象维护关系，否则插入对象维护关系
+        for (const v of Object.values(oneToOne)) {
+            v[`${table}_id`]=row.id
+            await v.upsert()
+        }
+        // 遍历所有数组，区分1对多，多多多，如果有id维护关系就行，否则插入并维护关系
+        for (const arr of Object.values(oneToMany)) {
+            for (const item of arr) {
+                let sub_table = item.constructor.name.toLowerCase();
+                const joinTableName = [table, sub_table].sort().join('_');
+                let hasJoinTable = joinTableMap[joinTableName];
+                if (!hasJoinTable){//维护1对多关系
+                    item[`${table}_id`]=row.id
+                }
+                let [item_row]=await item.upsert()
+                if (hasJoinTable){//维护多对多关系
+                    const rdata = {[`${table}_id`]: row.id, [`${sub_table}_id`]: item_row.id}
+                    await add(joinTableName,rdata)
                 }
             }
         }
+        return row;
+    }
+    //weekset解决循环依赖
+    //不是多对多增加外键，分离，插入主表，是否插入关系表，递归子对象/数组
+    async addWithPid(pname: string, pid: number, seen = new WeakSet()) {
+        if (seen.has(this)) return this;
+        seen.add(this);
+        const table = this.constructor.name.toLowerCase();
+        const joinTableName = [pname, table].sort().join('_');
+        const hasJoinTable = joinTableMap[joinTableName];
+        // 判断是否为多对多
+        if (!hasJoinTable) {
+            this[`${pname}_id`] = pid; // 一对多 / 一对一，直接写外键
+        }
+        // --- 分离字段 ---
+        const main = {}, oneToOne = {}, oneToMany = {};
+        for (const [k, v] of Object.entries(this)) {
+            if (Array.isArray(v)) oneToMany[k] = v;
+            else if (v && typeof v === 'object') oneToOne[k] = v;
+            else if (v !== null && v !== undefined) main[k] = v;
+        }
+        // 插入当前表
+        const [row]=await add(table,main)
+        // 多对多：插入关系表
+        if (hasJoinTable) {
+            const rdata = {[`${pname}_id`]: pid, [`${table}_id`]: row.id}
+            await add(joinTableName,rdata)
+        }
 
-        return Array.from(map.values());
+        // 🔁 递归一对一字段
+        for (const v of Object.values(oneToOne)) {
+            await v.addWithPid(table, row.id, seen);
+        }
+        // 🔁 递归一对多字段
+        for (const arr of Object.values(oneToMany)) {
+            for (const item of arr) {
+                await item.addWithPid(table,row.id, seen);
+            }
+        }
+        return row;
+    }
+}
+function splitFields(obj) {
+    const main = {}, oneToOne = {}, oneToMany = {};
+    for (const [k, v] of Object.entries(obj)) {
+        if (Array.isArray(v)) oneToMany[k] = v;
+        else if (v && typeof v === 'object') oneToOne[k] = v;
+        else if (v !== null && v !== undefined) main[k] = v;
+    }
+    return { main, oneToOne, oneToMany };
+}
+async function syncManyToManyRelations(tableA, tableB, aid, bidList) {
+    const joinTableName = [tableA, tableB].sort().join('_');
+    const [colA, colB] = [tableA, tableB].sort();
+
+    if (!bidList || bidList.length === 0) {
+        // 如果没传任何子 id，删除所有关系
+        await sql.query(`
+      DELETE FROM "${joinTableName}"
+      WHERE "${colA}_id" = $1
+    `, [aid]);
+        return;
+    }
+
+    // 1. 批量插入新关联，冲突时忽略
+    const valuesClause = bidList.map((_, i) => `($1, $${i + 2})`).join(', ');
+    const params = [aid, ...bidList];
+
+    await sql.query(`
+    INSERT INTO "${joinTableName}" ("${colA}_id", "${colB}_id")
+    VALUES ${valuesClause}
+    ON CONFLICT DO NOTHING
+  `, params);
+
+    // 2. 删除没传入的旧关联
+    const placeholders = bidList.map((_, i) => `$${i + 2}`).join(', ');
+    await sql.query(`
+    DELETE FROM "${joinTableName}"
+    WHERE "${colA}_id" = $1 AND "${colB}_id" NOT IN (${placeholders})
+  `, params);
+}
+async function deleteRemovedRelations(table, sub_table, this_id, ids, joinTableMap) {
+    const joinTableName = [table, sub_table].sort().join('_');
+    const hasJoinTable = joinTableMap[joinTableName];
+
+    // 构建 NOT IN 的参数占位符
+    const placeholders = ids.map((_, i) => `$${i + 2}`).join(', ');
+
+    if (hasJoinTable) {
+        // 多对多：删除中间表中的无效关联
+        const sqlText = `
+            DELETE FROM "${joinTableName}"
+            WHERE ${table}_id = $1 AND ${sub_table}_id NOT IN (${placeholders})
+        `;
+        await sql.query(sqlText, [this_id, ...ids]);
+    } else {
+        // 一对多：删除子表中不在 ids 的记录
+        const sqlText = `
+            DELETE FROM "${sub_table}"
+            WHERE ${table}_id = $1 AND id NOT IN (${placeholders})
+        `;
+        await sql.query(sqlText, [this_id, ...ids]);
     }
 }
 
+async function add(table, obj) {
+    const keys = Object.keys(obj)
+    const cols = keys.map(k => `"${k}"`).join(', ')
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ')
+    const values = Object.values(obj)
+    const text = `INSERT INTO "${table}" (${cols})VALUES (${placeholders}) RETURNING *`
+    console.log(text,values)
+    const [rows] = await sql.query(text, values)
+    return rows
+}
 /**
  * 给 on 条件里的字段添加表名前缀
  * 简单做法：对形如 id、name 等独立字段加前缀，忽略已有点的字段
@@ -166,6 +300,7 @@ class BaseModel {
  */
 function addTablePrefix(sql: string, tableName: string): string {
     // 只给独立单词加前缀，排除已经带点号的字段，避免重复前缀
+    tableName=`"${tableName}"`
     return sql.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g, (match) => {
         if (match.includes('.')) return match; // 已带点，跳过
         // 排除SQL关键字或数字，简单示范，仅常用字段处理
@@ -184,10 +319,22 @@ function getSqlParts(root: BaseModel, joinTableMap: Record<string, number>) {
     const allArgs: any[] = [];
     let paramCounter = 1;
 
+    const groupKeys: string[] = [];
+    const groupNames: string[] = [];
+
     joinedTables.add(rootName);
 
     function walk(model: BaseModel, tableName: string) {
         const sel = model.getSel();
+
+        // 假设每张表都有 id 字段
+        groupKeys.push(`${tableName}_id`);
+        // 转换为聚合数组字段名（roles、permissions）
+        if (groupKeys.length > 1) {
+            const lastKey = groupKeys[groupKeys.length - 1];
+            const name = lastKey.replace(/_id$/, '');
+            groupNames.push(name.endsWith('s') ? name : name + 's');
+        }
 
         for (const field of sel || []) {
             if (typeof field === 'string') {
@@ -245,8 +392,16 @@ function getSqlParts(root: BaseModel, joinTableMap: Record<string, number>) {
 
     walk(root, rootName);
 
-    return { selectCols, joins, args: allArgs, paramCount: paramCounter - 1 };
+    return {
+        selectCols,
+        joins,
+        args: allArgs,
+        paramCount: paramCounter - 1,
+        groupKeys,
+        groupNames
+    };
 }
+
 
 function tagToPrepareStatement(strings: TemplateStringsArray, values: any[], startIndex = 1) {
     let text = '';
@@ -265,7 +420,6 @@ function tagToPrepareStatement(strings: TemplateStringsArray, values: any[], sta
             }
         }
     }
-
     return { statement: text, args: params };
 }
 
@@ -295,17 +449,22 @@ function dynamicGroup(rows, levels, names = []) {
 
         for (const [groupKey, groupRows] of grouped) {
             const first = groupRows[0];
-            const entry = { [key]: groupKey };
+            const entry: any = {};
 
-            // ✅ 仅拷贝当前 key 对应的字段（如 role_id 拷贝 role_name）
+            // ✅ 设置当前对象的 id 字段为 groupKey
+            entry['id'] = groupKey;
+
+            // ✅ 推测当前 prefix，如 role_ / permission_
             const prefix = key.replace(/_id$/, '');
+
             for (const k in first) {
-                if (k !== key && k.startsWith(prefix)) {
-                    entry[k] = first[k];
+                if (k !== key && k.startsWith(prefix + '_')) {
+                    const strippedKey = k.slice(prefix.length + 1); // 去前缀
+                    entry[strippedKey] = first[k];
                 }
             }
 
-            // 递归处理下一层
+            // 🔁 递归处理下一层
             const children = groupLevel(groupRows, depth + 1);
             if (Array.isArray(children) && children.length > 0) {
                 const nextKey = levels[depth + 1];
@@ -328,28 +487,25 @@ function dynamicGroup(rows, levels, names = []) {
 
 
 
+
+
 // 模型定义
 class Permission extends BaseModel {
-    id: bigint;
     code: string;
 }
 class Menu extends BaseModel {
-    id: bigint;
     name: string;
     path: string;
 }
 class Role extends BaseModel {
-    id: bigint;
     name: string;
     permissions: Permission[];
     menus: Menu[];
 }
 class Order extends BaseModel {
-    id: bigint;
     name: string;
 }
 class User extends BaseModel {
-    id: bigint;
     name: string;
     roles: Role[];
     orders: Order[];
@@ -393,9 +549,16 @@ const mockDbRows = [
 
 // 使用示例
 (async () => {
-    const rs = await User.sel('id','name',Role.sel('id','name',Permission.sel('id','name'))).get`role.id = ${1}`;
-    console.log(JSON.stringify(rs));
-/*    const user = User.sel('id', 'name', Role.sel('id', 'name',Permission.sel('id','name')).on`role.status = ${1}`);
-    const jsonResult = user.mapRowsToJson(mockDbRows);
-    console.log(JSON.stringify(jsonResult, null, 2));*/
+ /*   let user=new User()
+    user.name='4'
+    let role=new Role()
+    role.name='4'
+    let order=new Order()
+    order.name='4'
+    user.role=role
+    user.order=order
+    user.add()*/
+    const user = User.sel('id', 'name', Role.sel('id', 'name',Permission.sel('id','name')).on`id = ${1}`);
+    const jsonResult =await user.get`id=${1} and name=${'test'}`;
+    console.log(JSON.stringify(jsonResult));
 })();

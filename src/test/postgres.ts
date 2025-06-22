@@ -77,6 +77,7 @@ sql.update = async function (table, updates, where = {}) {
 }
 
 export default sql
+
 let id=1
 let table='"user"'
 const col = ['"user".id as user_id', '"user".name','"role_user".role_id as role_id'] // 注意：加表名前缀，不加引号
