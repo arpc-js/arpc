@@ -95,7 +95,13 @@ class BaseModel {
         const table = this.constructor.name.toLowerCase();
         const { selectCols, joins, args: joinArgs, paramCount, groupKeys, groupNames } = getSqlParts(this, joinTableMap);
 
-        const { whereClause, whereArgs } = buildWhereClause(this, condition, values, paramCount + 1);
+        let { whereClause, whereArgs } = buildWhereClause(this, condition, values, paramCount + 1);
+
+        if (whereClause) {
+            whereClause += ` AND "${table}".is_deleted = false`;
+        } else {
+            whereClause = `WHERE "${table}".is_deleted = false`;
+        }
 
         const text = `SELECT ${selectCols.join(', ')} FROM "${table}" ${joins.join(' ')}${whereClause}`;
         const allArgs = [...joinArgs, ...whereArgs];
@@ -121,6 +127,7 @@ class BaseModel {
         const [rows] = await sql.query(text, [...setValues, ...whereArgs])
         return rows
     }
+    //所有对象，包含子对象通过id增删改，无id增，有修改，有is_deleted软删除
     async updateById(id=null) {
         const table = this.constructor.name.toLowerCase();
         const { main, oneToOne, oneToMany } = splitFields(this);
@@ -136,7 +143,7 @@ class BaseModel {
         for (const v of Object.values(oneToOne)) {
             //修改并维护关系,或者新增维护关系
             v[`${table}_id`]=this.id
-            await v.upsert()
+            await v.save()//saveOrUpdate
         }
         // 递归插入一对多子对象数组,或多对多
         for (const arr of Object.values(oneToMany)) {
@@ -150,16 +157,17 @@ class BaseModel {
                 if (!hasJoinTable){//维护11，1n关系
                     item[`${table}_id`]=this.id
                 }
-                let [row]=await item.upsert()
+                let [row]=await item.save()
                 if (hasJoinTable){//维护多对多关系
                     const rdata = {[`${table}_id`]: this.id, [`${sub_table}_id`]: row.id}
                     await add(joinTableName,rdata)
                 }
                 ids.push(row.id)
             }
-            await deleteRemovedRelations(table, sub_table, this.id, ids, joinTableMap);
+            //软删除代替了
+            //await deleteRemovedRelations(table, sub_table, this.id, ids, joinTableMap);
         }
-        return rows[0];
+        return rows?.[0];
     }
     async updateWithVersion(condition: TemplateStringsArray | number | Record<string, any>, ...values: any[]) {
         const table = this.constructor.name.toLowerCase();
@@ -238,7 +246,7 @@ class BaseModel {
         // 插入1对1，如果有id修改对象维护关系，否则插入对象维护关系
         for (const v of Object.values(oneToOne)) {
             v[`${table}_id`]=row.id
-            await v.upsert()
+            await v.save()
         }
         // 遍历所有数组，区分1对多，多多多，如果有id维护关系就行，否则插入并维护关系
         for (const arr of Object.values(oneToMany)) {
@@ -249,7 +257,7 @@ class BaseModel {
                 if (!hasJoinTable){//维护1对多关系
                     item[`${table}_id`]=row.id
                 }
-                let [item_row]=await item.upsert()
+                let [item_row]=await item.save()
                 if (hasJoinTable){//维护多对多关系
                     const rdata = {[`${table}_id`]: row.id, [`${sub_table}_id`]: item_row.id}
                     await add(joinTableName,rdata)
@@ -468,7 +476,7 @@ function getSqlParts(root: BaseModel, joinTableMap: Record<string, number>) {
                         joinedTables.add(joinTableName);
                     }
                     if (!joinedTables.has(childTable)) {
-                        const baseJoin = `"${joinTableName}".${childTable}_id = "${childTable}".id`;
+                        const baseJoin = `"${joinTableName}".${childTable}_id = "${childTable}".id and "${childTable}".is_deleted = false`;
                         const extra = field.getOnStatement();
                         const extraArgs = field.getOnArgs();
                         let joinCond = baseJoin;
@@ -483,7 +491,7 @@ function getSqlParts(root: BaseModel, joinTableMap: Record<string, number>) {
                     }
                 } else {
                     if (!joinedTables.has(childTable)) {
-                        const baseJoin = `"${tableName}".id = "${childTable}".${tableName}_id`;
+                        const baseJoin = `"${tableName}".id = "${childTable}".${tableName}_id and "${childTable}".is_deleted = false`;
                         const extra = field.getOnStatement();
                         const extraArgs = field.getOnArgs();
                         let joinCond = baseJoin;
