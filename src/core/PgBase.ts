@@ -9,9 +9,10 @@ const sql = new Pool({
 })
 class BaseModel {
     id:bigint
+    //version:bigint //子类定义，子类有version字段，开启乐观锁，修改失败表示锁冲突
+    is_deleted:boolean //软删除，增加软删除方法，不能查is_deleted的数据
     created_at:Date
     updated_at:Date
-    is_deleted:boolean //软删除，增加软删除方法，不能查is_deleted的数据
     #sel: any[] = [];
     #where: string | null = null;
     #onStatement: string | null = null;
@@ -43,7 +44,9 @@ class BaseModel {
         instance.#sel = fields.length > 0 ? fields : ['**'];
         return instance;
     }
-
+    table(){
+     return this.constructor.name.toLowerCase()
+    }
     wh(where: string) {
         this.#where = where;
         return this;
@@ -86,54 +89,49 @@ class BaseModel {
         return this.#onArgs;
     }
 
-    async get(strings: TemplateStringsArray, ...values: any[]) {
+    //id查询，tag查询，动态查询,都没有this.id作为条件
+    //返回多条，单挑自己解构[user]
+    async get(condition: TemplateStringsArray | number | Record<string, any>, ...values: any[]) {
         const table = this.constructor.name.toLowerCase();
         const { selectCols, joins, args: joinArgs, paramCount, groupKeys, groupNames } = getSqlParts(this, joinTableMap);
 
-        let whereSql = '';
-        let whereArgs: any[] = [];
-        if (isTaggedTemplateCall(strings)) {
-            // 标签模板条件
-            const prepared = tagToPrepareStatement(strings, values, paramCount + 1);
-            whereSql = addTablePrefix(prepared.statement, table);
-            whereArgs = prepared.args;
-        } else if (typeof strings === 'number') {
-            // 按id查询
-            whereSql = `"${table}".id = $${paramCount + 1}`;
-            whereArgs = [strings];
-        } else if (typeof strings === 'object' && strings !== null) {
-            // 动态对象条件，拼 AND 关系，自动参数序号偏移
-            const conditions: string[] = [];
-            const args: any[] = [];
-            let idx = paramCount + 1;
-            for (const [key, val] of Object.entries(strings)) {
-                conditions.push(`"${table}".${key} = $${idx++}`);
-                args.push(val);
-            }
-            whereSql = conditions.join(' AND ');
-            whereArgs = args;
-        }
-        const whereClause = whereSql ? ` WHERE ${whereSql}` : '';
+        const { whereClause, whereArgs } = buildWhereClause(this, condition, values, paramCount + 1);
 
         const text = `SELECT ${selectCols.join(', ')} FROM "${table}" ${joins.join(' ')}${whereClause}`;
         const allArgs = [...joinArgs, ...whereArgs];
-        const {rows} = await sql.query(text, allArgs);
+        const { rows } = await sql.query(text, allArgs);
 
-        const grouped = dynamicGroup(rows, groupKeys,groupNames);
+        const grouped = dynamicGroup(rows, groupKeys, groupNames);
         return grouped;
     }
     //
     //嵌套级联操作条件只能是id，因为id关联的关系
-    async update(strings: TemplateStringsArray, ...values: any[]) {
-        const table = this.constructor.name.toLowerCase();
+    //默认单条id操作,有条件代表多条操作
+    async update(condition: TemplateStringsArray, ...values: any[]) {
+        const table = this.table();
         const { main, oneToOne, oneToMany } = splitFields(this);
-        const setKeys = Object.keys(main)
-        const setClause = setKeys.map((k, i) => `"${k}" = $${i + 1}`).join(', ')
-        const setValues = Object.values(main)
-        const { statement: whereSql, args: whereArgs } = tagToPrepareStatement(strings, values, setValues.length + 1);
-        const whereClause = whereSql ? ` WHERE ${whereSql}` : '';
+
+        const setKeys = Object.keys(main).filter(k => main[k] !== undefined && main[k] !== null);
+        let setClause = setKeys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+        const setValues = setKeys.map(k => main[k]);
+
+        const { whereClause, whereArgs } = buildWhereClause(this, condition, values, setValues + 1);
+
         const text = `UPDATE "${table}" SET ${setClause} ${whereClause} RETURNING *`
         const [rows] = await sql.query(text, [...setValues, ...whereArgs])
+        return rows
+    }
+    async updateById(id=null) {
+        const table = this.constructor.name.toLowerCase();
+        const { main, oneToOne, oneToMany } = splitFields(this);
+        const setKeys = Object.keys(main).filter(k => main[k] !== undefined && main[k] !== null);
+        let setClause = setKeys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+        const setValues = setKeys.map(k => main[k]);
+
+        id = id ?? this.id;
+        const text = `UPDATE "${table}" SET ${setClause} where "${table}".id=$${setValues.length+1} RETURNING *`
+        const [rows] = await sql.query(text, [...setValues, id])
+        if (!rows.length) return
         this.id = rows[0]?.id ?? this.id;
         for (const v of Object.values(oneToOne)) {
             //修改并维护关系,或者新增维护关系
@@ -163,8 +161,74 @@ class BaseModel {
         }
         return rows[0];
     }
-    async upsert(){
+    async updateWithVersion(condition: TemplateStringsArray | number | Record<string, any>, ...values: any[]) {
+        const table = this.constructor.name.toLowerCase();
+        const { main } = splitFields(this);
+
+        // 过滤要更新的字段
+        const setKeys = Object.keys(main).filter(k => main[k] !== undefined && main[k] !== null);
+        let setClause = setKeys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+        const setValues = setKeys.map(k => main[k]);
+
+        // 用 buildWhereClause 构造初步 where 条件和参数
+        const { whereClause: baseWhereClause, whereArgs: baseWhereArgs } = buildWhereClause(this, condition, values, setValues.length + 1);
+
+        // version 乐观锁逻辑
+        let whereClause = baseWhereClause;
+        let whereArgs = [...baseWhereArgs];
+        //@ts-ignore
+        if ('version' in this) {
+            // 拼接 SET 子句增加 version 自增
+            setClause += (setClause ? ', ' : '') + `"version" = "version" + 1`;
+            // 拼接 WHERE 条件 version = 当前版本号
+            if (whereClause) {
+                whereClause += ` AND "version" = $${setValues.length + whereArgs.length + 1}`;
+            } else {
+                whereClause = ` WHERE "version" = $${setValues.length + whereArgs.length + 1}`;
+            }
+            //@ts-ignore
+            whereArgs.push(this.version);
+        }
+
+        const text = `UPDATE "${table}" SET ${setClause} ${whereClause} RETURNING *`;
+        const [rows] = await sql.query(text, [...setValues, ...whereArgs]);
+
+        return rows?.[0];
+    }
+    async del(condition: TemplateStringsArray | number | Record<string, any>, ...values: any[]) {
+        const table = this.table()
+
+        const { whereClause, whereArgs } = buildWhereClause(this, condition, values, 1);
+
+        const text = `DELETE FROM "${table}"${whereClause} RETURNING *`;
+        const { rows } = await sql.query(text, whereArgs);
+
+        return rows;
+    }
+    async softDel(condition: TemplateStringsArray | number | Record<string, any>, ...values: any[]) {
+        const table = this.table();
+        const isDeletedValue = true; // 或者 1，根据你的字段类型
+
+        // SET 子句固定：设置 is_deleted = true
+        const setClause = `"is_deleted" = $1`;
+        const setValues = [isDeletedValue];
+
+        // 构造 where 条件，从 param 索引从1开始
+        const { whereClause, whereArgs } = buildWhereClause(this, condition, values, 2);
+
+        const text = `UPDATE "${table}" SET ${setClause} ${whereClause} RETURNING *`;
+
+        const [rows] = await sql.query(text, [...setValues, ...whereArgs]);
+        return rows;
+    }
+
+    //save应用层saveOrUpdate
+    async save(){
         return this.id?await this.update`id=${this.id}`:await this.add()
+    }
+    //数据库层，可以任意字段冲突
+    async upsert(){
+        return
     }
     async add() {
         const table = this.constructor.name.toLowerCase();
@@ -234,6 +298,41 @@ class BaseModel {
         return row;
     }
 }
+function buildWhereClause(
+    obj,
+    conditionInput,
+    values: any[],
+    paramStartIndex: number
+) {
+    let table=obj.table()
+    let whereSql = '';
+    let whereArgs: any[] = [];
+
+    if (isTaggedTemplateCall(conditionInput)) {
+        const prepared = tagToPrepareStatement(conditionInput, values, paramStartIndex);
+        whereSql = addTablePrefix(prepared.statement, table);
+        whereArgs = prepared.args;
+    } else if (typeof conditionInput === 'number') {
+        whereSql = `"${table}".id = $${paramStartIndex}`;
+        whereArgs = [conditionInput];
+    } else if (typeof conditionInput === 'object' && conditionInput !== null) {
+        const conditions: string[] = [];
+        const args: any[] = [];
+        let idx = paramStartIndex;
+        for (const [key, val] of Object.entries(conditionInput)) {
+            conditions.push(`"${table}".${key} = $${idx++}`);
+            args.push(val);
+        }
+        whereSql = conditions.join(' AND ');
+        whereArgs = args;
+    } else if (obj.id) {//什么条件都没有，默认对象id为条件
+        whereSql = `"${table}".id = $${paramStartIndex}`;
+        whereArgs = [obj.id];
+    }
+
+    return { whereClause:whereSql ? ` WHERE ${whereSql}` : '', whereArgs };
+}
+
 function splitFields(obj) {
     const main = {}, oneToOne = {}, oneToMany = {};
     for (const [k, v] of Object.entries(obj)) {
@@ -298,7 +397,7 @@ async function deleteRemovedRelations(table, sub_table, this_id, ids, joinTableM
 }
 
 async function add(table, obj) {
-    const keys = Object.keys(obj)
+    const keys = Object.keys(obj).filter(k => obj[k] !== undefined && obj[k] !== null)
     const cols = keys.map(k => `"${k}"`).join(', ')
     const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ')
     const values = Object.values(obj)
