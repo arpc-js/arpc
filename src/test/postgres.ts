@@ -43,11 +43,8 @@ function sql(strings, ...values) {
 }
 
 function isTaggedTemplateCall(strings) {
-    return (
-        Array.isArray(strings) &&
-        typeof strings.raw === 'object' &&
-        strings.raw.length === strings.length
-    )
+    //@ts-ignore
+    return (Array.isArray(strings) && typeof strings.raw === 'object' && strings.raw.length === strings.length)
 }
 // insert(table, obj)
 sql.insert = async function (table, obj) {

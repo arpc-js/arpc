@@ -55,9 +55,9 @@ function rpc_proxy(mode) {
                 let aa=null
                 if (mode=='adm'){
                     aa=fns.map(x=>`async ${x}(...args){
-              let rsp=await fetch('http://127.0.0.1:3000/${name}/${x}',{
+              let rsp=await fetch('http://127.0.0.1:3000/${name.toLowerCase()}/${x}',{
                   method: 'POST',
-                  body:JSON.stringify({args:args})
+                  body:JSON.stringify({...this,args:args})
               })
               if (rsp?.status!=200){
                   throw await rsp.text()
@@ -67,10 +67,10 @@ function rpc_proxy(mode) {
                 }else {
                     aa=fns.map(x=>`async ${x}(...args){
         const response = await uni.request({
-            url: 'https://127.0.0.1:3000/${name}/${x}',
+            url: 'https://127.0.0.1:3000/${name.toLowerCase()}/${x}',
             method: 'POST',
             header:{'Authorization':uni.getStorageSync('token')},
-            data: {attr:this,args:args}
+            data: {...this,args:args}
         });
         if (response.statusCode  === 500) {
             throw response.data

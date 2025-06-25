@@ -1,5 +1,5 @@
 // ==== BaseModel.ts ====
-import {getsql} from "../core/OdbBase.ts";
+import {getsql} from "../bun_core/OdbBase.ts";
 import sql from "./postgres.ts";
 
 class BaseModel {

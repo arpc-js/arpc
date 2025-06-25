@@ -7,7 +7,8 @@ const sql = new Pool({
     host: '156.238.240.143',
     port: 5432,
 })
-class BaseModel {
+export class PgBase {
+    static types={}
     id:bigint
     //version:bigint //子类定义，子类有version字段，开启乐观锁，修改失败表示锁冲突
     is_deleted:boolean //软删除，增加软删除方法，不能查is_deleted的数据
@@ -46,6 +47,10 @@ class BaseModel {
     }
     table(){
      return this.constructor.name.toLowerCase()
+    }
+    get types(){
+        //@ts-ignore
+        return this.constructor.types
     }
     wh(where: string) {
         this.#where = where;
@@ -106,7 +111,9 @@ class BaseModel {
         const text = `SELECT ${selectCols.join(', ')} FROM "${table}" ${joins.join(' ')}${whereClause}`;
         const allArgs = [...joinArgs, ...whereArgs];
         const { rows } = await sql.query(text, allArgs);
-
+        console.log(text)
+        console.log(allArgs)
+        console.log(rows)
         const grouped = dynamicGroup(rows, groupKeys, groupNames);
         return grouped;
     }
@@ -121,7 +128,7 @@ class BaseModel {
         let setClause = setKeys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
         const setValues = setKeys.map(k => main[k]);
 
-        const { whereClause, whereArgs } = buildWhereClause(this, condition, values, setValues + 1);
+        const { whereClause, whereArgs } = buildWhereClause(this, condition, values, setValues.length + 1);
 
         const text = `UPDATE "${table}" SET ${setClause} ${whereClause} RETURNING *`
         const [rows] = await sql.query(text, [...setValues, ...whereArgs])
@@ -143,6 +150,7 @@ class BaseModel {
         for (const v of Object.values(oneToOne)) {
             //修改并维护关系,或者新增维护关系
             v[`${table}_id`]=this.id
+            //@ts-ignore
             await v.save()//saveOrUpdate
         }
         // 递归插入一对多子对象数组,或多对多
@@ -150,6 +158,7 @@ class BaseModel {
             let sub_table=''
             let ids=[]
             let hasJoinTable
+            //@ts-ignore
             for (const item of arr) {
                 sub_table = item.constructor.name.toLowerCase();
                 const joinTableName = [table, sub_table].sort().join('_');
@@ -239,6 +248,7 @@ class BaseModel {
         return
     }
     async add() {
+        console.log(this.types)
         const table = this.constructor.name.toLowerCase();
         const { main, oneToOne, oneToMany } = splitFields(this);
         // 插入主表
@@ -246,10 +256,12 @@ class BaseModel {
         // 插入1对1，如果有id修改对象维护关系，否则插入对象维护关系
         for (const v of Object.values(oneToOne)) {
             v[`${table}_id`]=row.id
+            //@ts-ignore
             await v.save()
         }
         // 遍历所有数组，区分1对多，多多多，如果有id维护关系就行，否则插入并维护关系
         for (const arr of Object.values(oneToMany)) {
+            //@ts-ignore
             for (const item of arr) {
                 let sub_table = item.constructor.name.toLowerCase();
                 const joinTableName = [table, sub_table].sort().join('_');
@@ -264,7 +276,7 @@ class BaseModel {
                 }
             }
         }
-        return row;
+        return [row];
     }
     //weekset解决循环依赖
     //不是多对多增加外键，分离，插入主表，是否插入关系表，递归子对象/数组
@@ -295,10 +307,12 @@ class BaseModel {
 
         // 🔁 递归一对一字段
         for (const v of Object.values(oneToOne)) {
+            //@ts-ignore
             await v.addWithPid(table, row.id, seen);
         }
         // 🔁 递归一对多字段
         for (const arr of Object.values(oneToMany)) {
+            //@ts-ignore
             for (const item of arr) {
                 await item.addWithPid(table,row.id, seen);
             }
@@ -411,7 +425,7 @@ async function add(table, obj) {
     const values = Object.values(obj)
     const text = `INSERT INTO "${table}" (${cols})VALUES (${placeholders}) RETURNING *`
     console.log(text,values)
-    const [rows] = await sql.query(text, values)
+    const {rows} = await sql.query(text, values)
     return rows
 }
 /**
@@ -432,7 +446,7 @@ function addTablePrefix(sql: string, tableName: string): string {
     });
 }
 
-function getSqlParts(root: BaseModel, joinTableMap: Record<string, number>) {
+function getSqlParts(root: PgBase, joinTableMap: Record<string, number>) {
     const rootName = root.constructor.name.toLowerCase();
     const selectCols: string[] = [];
     const joins: string[] = [];
@@ -445,7 +459,7 @@ function getSqlParts(root: BaseModel, joinTableMap: Record<string, number>) {
 
     joinedTables.add(rootName);
 
-    function walk(model: BaseModel, tableName: string) {
+    function walk(model: PgBase, tableName: string) {
         const sel = model.getSel();
 
         // 假设每张表都有 id 字段
@@ -464,7 +478,7 @@ function getSqlParts(root: BaseModel, joinTableMap: Record<string, number>) {
                 } else {
                     selectCols.push(`"${tableName}".${field} AS ${tableName}_${field}`);
                 }
-            } else if (field instanceof BaseModel) {
+            } else if (field instanceof PgBase) {
                 const childTable = field.constructor.name.toLowerCase();
                 const tables = [tableName, childTable].sort();
                 const joinTableName = tables.join('_');
@@ -608,7 +622,9 @@ function dynamicGroup(rows, levels, names = []) {
 function isTaggedTemplateCall(strings) {
     return (
         Array.isArray(strings) &&
+        //@ts-ignore
         typeof strings.raw === 'object' &&
+        //@ts-ignore
         strings.raw.length === strings.length
     )
 }
@@ -617,22 +633,22 @@ function isTaggedTemplateCall(strings) {
 
 
 // 模型定义
-class Permission extends BaseModel {
+class Permission extends PgBase {
     code: string;
 }
-class Menu extends BaseModel {
+class Menu extends PgBase {
     name: string;
     path: string;
 }
-class Role extends BaseModel {
+class Role extends PgBase {
     name: string;
     permissions: Permission[];
     menus: Menu[];
 }
-class Order extends BaseModel {
+class Order extends PgBase {
     name: string;
 }
-class User extends BaseModel {
+class User extends PgBase {
     name: string;
     roles: Role[];
     orders: Order[];
@@ -675,8 +691,8 @@ const mockDbRows = [
 ];
 
 // 使用示例
-(async () => {
- /*   let user=new User()
+/*(async () => {
+ /!*   let user=new User()
     user.name='4'
     let role=new Role()
     role.name='4'
@@ -684,8 +700,8 @@ const mockDbRows = [
     order.name='4'
     user.role=role
     user.order=order
-    user.add()*/
+    user.add()*!/
     const user = User.sel('id', 'name', Role.sel('id', 'name',Permission.sel('id','name')).on`id = ${1}`);
     const jsonResult =await user.get`id=${1} and name=${'test'}`;
     console.log(JSON.stringify(jsonResult));
-})();
+})();*/

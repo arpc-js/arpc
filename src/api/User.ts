@@ -1,58 +1,38 @@
-import {OdbBase} from "../core/OdbBase.ts";
-import {Auth} from "../core/jwt.ts";
-import type {Role} from "./Role.ts";
-import type {Order} from "./Order.ts";
-//1对1，1对多，多对1，引入外键表示谁是1
-//2个list代表多对多
-//新增，主插入，子是对象，传入id插入子表，是数组：1对多循环插入，多对多，循环插入时再插入关系表
-//新增可以是新对象，可以是选择旧id(一般用于多对多)，
-//删除，根据外键1对1/多级联删除，多对多不能级联删除
-//改:主表修改，子表可以是增删改
-//查模仿eql，递归join然后聚合
-export class User extends OdbBase<User>{
-    id:bigint
-    openid:string
-    name:string
-    type:bigint
-    balance:number
-    location
-    info
-    pwd:string
-    phone:string;
-    age:bigint;
-    avatar:string;
-    created_at:Date
-    updated_at:Date
-    city:string
+import { ctx } from '../core/oapi';
+import path from 'path';
+import fs from 'fs/promises';
+import jwt from "jsonwebtoken";
+import {PgBase} from "../core/PgBase.ts";
+import {Role} from "./Role.ts";  // 改成这里，用Promise版fs
+export  class User extends PgBase{
+    name: string
     roles:Role[]
-    order:Order[]
-    //定义的登陆云函数
-    async getByType(tp,name){
-        if (name){
-           return  await this.gets`type=${tp} and name=${name}`
-        }
-        return await this.gets`type=${tp}`
+    async add2({ a, b }: { a: number; b: number }) {
+        ctx.info(`User.add called with a=${a}, b=${b}`);
+        ctx.info('Request URL:', ctx.req?.url);
+        const token = jwt.sign({uid: 1}, 'secret', { expiresIn: '2h' });
+        return { sum: a + b };
     }
-    async login(code){
-        //code换成openid
-        const wxUrl = `https://api.weixin.qq.com/sns/jscode2session?appid=${'wx4fca4bfde91470b0'}&secret=${'c63f864448667f548248ebcd638121ac'}&js_code=${code}&grant_type=authorization_code`;
-        let rsp=await fetch(wxUrl)
-        let {openid}= await rsp.json()
-        //查询用户
-        let u=await this.get`openid=${openid}`
-        //新用户自动注册
-        if (!u){
-            if (!this.name){
-                this.name='李白'
-                this.avatar='https://chenmeijia.top/static/logo.png'
-            }
-            this.balance=0
-            this.openid=openid
-            u=await this.add()
+
+    async get1(id) {
+        return await User.sel('id','name').get(id)
+    }
+    async add1(data: any) {
+        console.log(User.types)
+        console.log(await User.sel('id','name').get(2))
+        ctx.info('111111111111111')
+        throw new Error('err 1111')
+        console.log(data)
+        const file = data?.avatar;
+        if (!file) {
+            return { error: 'No file uploaded in avatar field' };
         }
-        //u.id = Math.floor(Math.random() * 2) + 45;
-        //生成jwt token
-        let token=new Auth('asfdsf').getUserJWT(u.id)
-        return {uid:u.id,token:token}
+        const saveDir = path.resolve(process.cwd(), 'uploads');
+        await fs.mkdir(saveDir, { recursive: true });  // 这里是Promise版mkdir，无回调
+
+        const filePath = path.join(saveDir, file.filename);
+        await fs.writeFile(filePath, file.data);  // Promise版写文件
+
+        return { message: 'File saved successfully', path: filePath };
     }
 }

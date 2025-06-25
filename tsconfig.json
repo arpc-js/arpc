@@ -11,7 +11,8 @@
     "allowJs": true,
 
     // Bundler mode
-    "moduleResolution": "bundler",
+    "types": ["node"],
+    "moduleResolution": "node",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
@@ -25,6 +26,7 @@
     // Some stricter flags (disabled by default)
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noPropertyAccessFromIndexSignature": false
+    "noPropertyAccessFromIndexSignature": false,
+    "allowSyntheticDefaultImports": true
   }
 }

@@ -58,6 +58,8 @@
     "crypto": "^1.0.1",
     "echarts": "^5.1.1",
     "element-plus": "^2.10.2",
+    "formidable": "^3.5.4",
+    "jsonwebtoken": "^9.0.2",
     "pg": "^8.16.2",
     "postgres": "^3.4.7",
     "vite-plugin-html": "^3.2.2",

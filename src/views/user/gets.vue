@@ -52,6 +52,7 @@
 import { ref } from 'vue';
 import {post} from "../../utils/request.ts";
 import {User} from "../../api/User.ts";
+import {Role} from "../../api/Role.ts";
 // 过滤器
 const filter = ref({
   name: '',
@@ -90,7 +91,15 @@ function openDialog(mode: 'add' | 'edit' | 'detail', row?: any) {
 }
 async function gets() {
   let u=new User()
-  let r=await u.get(``)
+  //let r=await u.get1(2)
+  u.name='test1111'
+  let role1=new Role()
+  role1.name='role1'
+  let role2=new Role()
+  role2.name='role2'
+  u.roles=[role1,role2]
+  console.log(u)
+  await u.add()
   let rsp=await post('/permission/gets', filter.value)
   tableData.value = rsp.list;
   total.value = rsp.total;
