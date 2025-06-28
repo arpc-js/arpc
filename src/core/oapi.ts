@@ -259,6 +259,12 @@ async function deepAssign(instance: any, data: any): Promise<any> {
         if (key === 'args') continue;
         const value = data[key];
         const declared = types[key];
+        if (key === 'sel' && Array.isArray(value)&&value.length>0) {
+            //instance.sel = await Promise.all(value.map(convertJsonToSelInstance));
+            instance.setSel(await Promise.all(value.map(convertJsonToSelInstance)));
+            continue;
+        }
+        // ---------- 原逻辑 ----------
         if (typeof declared === 'string') {
             if (declared.endsWith('[]') && Array.isArray(value)) {
                 const itemType = declared.slice(0, -2);
@@ -278,8 +284,10 @@ async function deepAssign(instance: any, data: any): Promise<any> {
             instance[key] = value;
         }
     }
+
     return instance;
 }
+
 
 // ------------ 最核心的 oapi ------------
 
@@ -380,6 +388,23 @@ export function oapi() {
         }
     };
 }
+async function convertJsonToSelInstance(item: any): Promise<any> {
+    if (
+        typeof item === 'object' &&
+        item !== null &&
+        'model' in item &&
+        'sel' in item &&
+        typeof item.model === 'string' &&
+        Array.isArray(item.sel)
+    ) {
+        const Cls = await loadAndInjectTypes(item.model);
+        const items = await Promise.all(item.sel.map(convertJsonToSelInstance));
+        console.log('items:', items);
+        return Cls.sel(...items);
+    }
+    return item;
+}
+
 // 跨域中间件工厂
 // 鉴权中间件工厂，传入期望的token
 // 可配置：白名单和密钥

@@ -55,9 +55,10 @@ function rpc_proxy(mode) {
                 let aa=null
                 if (mode=='adm'){
                     aa=fns.map(x=>`async ${x}(...args){
+                    delete this.model
               let rsp=await fetch('http://127.0.0.1:3000/${name.toLowerCase()}/${x}',{
                   method: 'POST',
-                  body:JSON.stringify({...this,args:args})
+                  body:JSON.stringify({...this,sel:this.sel,args:args})
               })
               if (rsp?.status!=200){
                   throw await rsp.text()
@@ -70,7 +71,7 @@ function rpc_proxy(mode) {
             url: 'https://127.0.0.1:3000/${name.toLowerCase()}/${x}',
             method: 'POST',
             header:{'Authorization':uni.getStorageSync('token')},
-            data: {...this,args:args}
+            data: {...this,sel:this.sel,args:args}
         });
         if (response.statusCode  === 500) {
             throw response.data
@@ -85,7 +86,13 @@ function rpc_proxy(mode) {
                                 constructor() {
                                    return reactive(this)
                                 }
-                                ${attr.join(';')}
+                                ${attr.join(';')};
+                                 static sel(...fields) {
+                                   const instance = new this();
+                                   instance.sel = fields.length > 0 ? fields : ['**'];
+                                   instance.model=instance.constructor.name
+                                 return instance;
+                                } 
                                 ${aa.join('\n')}
                             }
 `

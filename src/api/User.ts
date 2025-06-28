@@ -3,9 +3,11 @@ import path from 'path';
 import fs from 'fs/promises';
 import jwt from "jsonwebtoken";
 import {PgBase} from "../core/PgBase.ts";
-import {Role} from "./Role.ts";  // 改成这里，用Promise版fs
+import {Role} from "./Role.ts";
+import {Order} from "./Order.ts";  // 改成这里，用Promise版fs
 export  class User extends PgBase{
     name: string
+    order:Order[]
     roles:Role[]
     async add2({ a, b }: { a: number; b: number }) {
         ctx.info(`User.add called with a=${a}, b=${b}`);
@@ -15,11 +17,16 @@ export  class User extends PgBase{
     }
 
     async get1(id) {
-        return await User.sel('id','name').get(id)
+        console.log('types:',new Role().types)
+        return await User.sel('id','name',Role.sel('id','name')).get(id)
+    }
+    async getOrder(id) {
+        console.log('types:',new Role().types)
+        return await User.sel('id','name',Order.sel('id','name')).get(id)
     }
     async add1(data: any) {
         console.log(User.types)
-        console.log(await User.sel('id','name').get(2))
+        console.log(await User.sel('id','name',Role.sel('id','name')).get(2))
         ctx.info('111111111111111')
         throw new Error('err 1111')
         console.log(data)

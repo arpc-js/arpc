@@ -22,28 +22,26 @@ export class PgBase {
     //支持exclude,通用字符串逗号分割和数组2种方式
     static sel(...fields: any[]): any {
         const instance = new this();
-        if (fields[0].includes('*')){
-            const mainAttrs = [];              // 主表字段
-            const childAttrs = [];         // 一对一对象字段// 分离字段类型
-            for (const [k, v] of Object.entries(this)) {
-                if (v === null || v === undefined) continue;
-                if (k === 'roles'||k === 'permissions') {//子对象
-                    childAttrs.push(k)
-                } else {
-                    mainAttrs.push(k)
-                }
-            }
-            fields=mainAttrs
-            if (fields[0]=='**'||fields[0]=='***'){//创建所有子对象Sel
-                //所有字
-                for (let childAttr of childAttrs) {
-                    let obj=null//2星用class.sel('*'),3星用class.sel('**')
-                    fields.push(obj)
-                }
-            }
-        }
         instance.#sel = fields.length > 0 ? fields : ['**'];
         return instance;
+    }
+    isManyToMany(that): boolean {
+        const thisName = this.constructor.name;
+        const thatName = that.constructor.name;
+        // this 的类型字段中是否包含 thatName[]
+        const thisHasThatMany = Object.values(this.types).some(type => type === `${thatName}[]`);
+        // that 的类型字段中是否包含 thisName[]
+        const thatHasThisMany = Object.values(that.types).some(type => type === `${thisName}[]`);
+        return thisHasThatMany && thatHasThisMany;
+    }
+
+     sel(...fields: any[]): any {
+        this.#sel = fields
+        return this;
+    }
+    setSel(...fields: any[]): any {
+        this.#sel = fields
+        return this;
     }
     table(){
      return this.constructor.name.toLowerCase()
@@ -97,24 +95,32 @@ export class PgBase {
     //id查询，tag查询，动态查询,都没有this.id作为条件
     //返回多条，单挑自己解构[user]
     async get(condition: TemplateStringsArray | number | Record<string, any>, ...values: any[]) {
+        console.log(condition)
+        console.log(values)
+        console.log(this)
         const table = this.constructor.name.toLowerCase();
-        const { selectCols, joins, args: joinArgs, paramCount, groupKeys, groupNames } = getSqlParts(this, joinTableMap);
+        const { selectCols, joins, args: joinArgs, paramCount, groupKeys, groupNames } = getSqlParts(this);
 
         let { whereClause, whereArgs } = buildWhereClause(this, condition, values, paramCount + 1);
 
         if (whereClause) {
-            whereClause += ` AND "${table}".is_deleted = false`;
+            whereClause += ` AND "${table}".is_deleted is not true`;
         } else {
-            whereClause = `WHERE "${table}".is_deleted = false`;
+            whereClause = `WHERE "${table}".is_deleted is not true`;
         }
 
         const text = `SELECT ${selectCols.join(', ')} FROM "${table}" ${joins.join(' ')}${whereClause}`;
         const allArgs = [...joinArgs, ...whereArgs];
-        const { rows } = await sql.query(text, allArgs);
         console.log(text)
         console.log(allArgs)
-        console.log(rows)
-        const grouped = dynamicGroup(rows, groupKeys, groupNames);
+        const { rows } = await sql.query(text, allArgs);
+        console.log(text)
+        console.log(groupNames)
+        console.log(groupKeys)
+        let grouped=rows
+        if (groupNames.length > 0) {
+             grouped = dynamicGroup(rows, groupKeys, groupNames);
+        }
         return grouped;
     }
     //
@@ -157,17 +163,14 @@ export class PgBase {
         for (const arr of Object.values(oneToMany)) {
             let sub_table=''
             let ids=[]
-            let hasJoinTable
             //@ts-ignore
             for (const item of arr) {
-                sub_table = item.constructor.name.toLowerCase();
-                const joinTableName = [table, sub_table].sort().join('_');
-                hasJoinTable = joinTableMap[joinTableName];
-                if (!hasJoinTable){//维护11，1n关系
+                if (!this.isManyToMany(item)){//维护11，1n关系
                     item[`${table}_id`]=this.id
                 }
                 let [row]=await item.save()
-                if (hasJoinTable){//维护多对多关系
+                if (this.isManyToMany(item)){//维护多对多关系
+                    const joinTableName = [table, sub_table].sort().join('_');
                     const rdata = {[`${table}_id`]: this.id, [`${sub_table}_id`]: row.id}
                     await add(joinTableName,rdata)
                 }
@@ -263,61 +266,19 @@ export class PgBase {
         for (const arr of Object.values(oneToMany)) {
             //@ts-ignore
             for (const item of arr) {
-                let sub_table = item.constructor.name.toLowerCase();
-                const joinTableName = [table, sub_table].sort().join('_');
-                let hasJoinTable = joinTableMap[joinTableName];
-                if (!hasJoinTable){//维护1对多关系
+                if (!this.isManyToMany(item)){//维护1对多关系
                     item[`${table}_id`]=row.id
                 }
                 let [item_row]=await item.save()
-                if (hasJoinTable){//维护多对多关系
+                if (this.isManyToMany(item)){//维护多对多关系
+                    let sub_table = item.constructor.name.toLowerCase();
+                    const joinTableName = [table, sub_table].sort().join('_');
                     const rdata = {[`${table}_id`]: row.id, [`${sub_table}_id`]: item_row.id}
                     await add(joinTableName,rdata)
                 }
             }
         }
         return [row];
-    }
-    //weekset解决循环依赖
-    //不是多对多增加外键，分离，插入主表，是否插入关系表，递归子对象/数组
-    async addWithPid(pname: string, pid: number, seen = new WeakSet()) {
-        if (seen.has(this)) return this;
-        seen.add(this);
-        const table = this.constructor.name.toLowerCase();
-        const joinTableName = [pname, table].sort().join('_');
-        const hasJoinTable = joinTableMap[joinTableName];
-        // 判断是否为多对多
-        if (!hasJoinTable) {
-            this[`${pname}_id`] = pid; // 一对多 / 一对一，直接写外键
-        }
-        // --- 分离字段 ---
-        const main = {}, oneToOne = {}, oneToMany = {};
-        for (const [k, v] of Object.entries(this)) {
-            if (Array.isArray(v)) oneToMany[k] = v;
-            else if (v && typeof v === 'object') oneToOne[k] = v;
-            else if (v !== null && v !== undefined) main[k] = v;
-        }
-        // 插入当前表
-        const [row]=await add(table,main)
-        // 多对多：插入关系表
-        if (hasJoinTable) {
-            const rdata = {[`${pname}_id`]: pid, [`${table}_id`]: row.id}
-            await add(joinTableName,rdata)
-        }
-
-        // 🔁 递归一对一字段
-        for (const v of Object.values(oneToOne)) {
-            //@ts-ignore
-            await v.addWithPid(table, row.id, seen);
-        }
-        // 🔁 递归一对多字段
-        for (const arr of Object.values(oneToMany)) {
-            //@ts-ignore
-            for (const item of arr) {
-                await item.addWithPid(table,row.id, seen);
-            }
-        }
-        return row;
     }
 }
 function buildWhereClause(
@@ -330,7 +291,7 @@ function buildWhereClause(
     let whereSql = '';
     let whereArgs: any[] = [];
 
-    if (isTaggedTemplateCall(conditionInput)) {
+    if (isTaggedTemplateCall(conditionInput,values)) {
         const prepared = tagToPrepareStatement(conditionInput, values, paramStartIndex);
         whereSql = addTablePrefix(prepared.statement, table);
         whereArgs = prepared.args;
@@ -446,9 +407,9 @@ function addTablePrefix(sql: string, tableName: string): string {
     });
 }
 
-function getSqlParts(root: PgBase, joinTableMap: Record<string, number>) {
+function getSqlParts(root: PgBase) {
     const rootName = root.constructor.name.toLowerCase();
-    const selectCols: string[] = [];
+    let selectCols: string[] = [];
     const joins: string[] = [];
     const joinedTables = new Set<string>();
     const allArgs: any[] = [];
@@ -461,7 +422,7 @@ function getSqlParts(root: PgBase, joinTableMap: Record<string, number>) {
 
     function walk(model: PgBase, tableName: string) {
         const sel = model.getSel();
-
+        console.log(`sel:`,sel)
         // 假设每张表都有 id 字段
         groupKeys.push(`${tableName}_id`);
         // 转换为聚合数组字段名（roles、permissions）
@@ -482,15 +443,13 @@ function getSqlParts(root: PgBase, joinTableMap: Record<string, number>) {
                 const childTable = field.constructor.name.toLowerCase();
                 const tables = [tableName, childTable].sort();
                 const joinTableName = tables.join('_');
-                const hasJoinTable = joinTableMap[joinTableName];
-
-                if (hasJoinTable) {
+                if (model.isManyToMany(field)) {
                     if (!joinedTables.has(joinTableName)) {
                         joins.push(`LEFT JOIN "${joinTableName}" ON "${tableName}".id = "${joinTableName}".${tableName}_id`);
                         joinedTables.add(joinTableName);
                     }
                     if (!joinedTables.has(childTable)) {
-                        const baseJoin = `"${joinTableName}".${childTable}_id = "${childTable}".id and "${childTable}".is_deleted = false`;
+                        const baseJoin = `"${joinTableName}".${childTable}_id = "${childTable}".id and "${childTable}".is_deleted is not true`;
                         const extra = field.getOnStatement();
                         const extraArgs = field.getOnArgs();
                         let joinCond = baseJoin;
@@ -505,7 +464,7 @@ function getSqlParts(root: PgBase, joinTableMap: Record<string, number>) {
                     }
                 } else {
                     if (!joinedTables.has(childTable)) {
-                        const baseJoin = `"${tableName}".id = "${childTable}".${tableName}_id and "${childTable}".is_deleted = false`;
+                        const baseJoin = `"${tableName}".id = "${childTable}".${tableName}_id and "${childTable}".is_deleted is not true`;
                         const extra = field.getOnStatement();
                         const extraArgs = field.getOnArgs();
                         let joinCond = baseJoin;
@@ -526,7 +485,7 @@ function getSqlParts(root: PgBase, joinTableMap: Record<string, number>) {
     }
 
     walk(root, rootName);
-
+    selectCols=selectCols.length==0?['*']:selectCols
     return {
         selectCols,
         joins,
@@ -538,7 +497,7 @@ function getSqlParts(root: PgBase, joinTableMap: Record<string, number>) {
 }
 
 
-function tagToPrepareStatement(strings: TemplateStringsArray, values: any[], startIndex = 1) {
+function tagToPrepareStatement(strings, values: any[], startIndex = 1) {
     let text = '';
     const params: any[] = [];
     let paramIndex = startIndex;
@@ -619,13 +578,13 @@ function dynamicGroup(rows, levels, names = []) {
 
     return groupLevel(rows, 0);
 }
-function isTaggedTemplateCall(strings) {
+function isTaggedTemplateCall(strings,values) {
     return (
-        Array.isArray(strings) &&
+        Array.isArray(strings)&&Array.isArray(strings)
         //@ts-ignore
-        typeof strings.raw === 'object' &&
+        //typeof strings.raw === 'object' &&
         //@ts-ignore
-        strings.raw.length === strings.length
+        //strings.raw.length === strings.length
     )
 }
 
@@ -655,14 +614,7 @@ class User extends PgBase {
 }
 
 // 多对多关系映射表
-const joinTableMap: Record<string, number> = {
-    'role_permission': 1,
-    'permission_role': 1,
-    'user_role': 1,
-    'role_user': 1,
-    'role_menu': 1,
-    'menu_role': 1,
-};
+
 const mockDbRows = [
     {
         user_id: 42,
