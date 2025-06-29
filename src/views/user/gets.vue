@@ -15,7 +15,7 @@
     <!-- 表格区域 -->
     <el-table :data="tableData" style="width: 100%">
       <el-table-column prop="id" label="ID" width="100" />
-      <el-table-column prop="name" label="权限名称" />
+      <el-table-column prop="name" label="用户名" />
       <el-table-column prop="path" label="路径" />
       <el-table-column label="操作" width="240">
         <template #header>
@@ -49,7 +49,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { ref,onMounted } from 'vue';
 import {post} from "../../utils/request.ts";
 import {User} from "../../api/User.ts";
 import {Role} from "../../api/Role.ts";
@@ -90,19 +90,7 @@ function openDialog(mode: 'add' | 'edit' | 'detail', row?: any) {
   showDialog.value = true;
 }
 async function gets() {
-  let u=new User()
-  //let r=await u.get1(2)
-  u.name='test1111'
-  let role1=new Role()
-  role1.name='role1'
-  let role2=new Role()
-  role2.name='role2'
-  u.roles=[role1,role2]
-  console.log(u)
-  await u.add()
-  let rsp=await post('/permission/gets', filter.value)
-  tableData.value = rsp.list;
-  total.value = rsp.total;
+  tableData.value=await User.sel('id','name').get`id>${1}`
 }
 // 提交新增或修改
 async function submit() {

@@ -3,12 +3,9 @@ import path from 'path';
 import fs from 'fs/promises';
 import jwt from "jsonwebtoken";
 import {PgBase} from "../core/PgBase.ts";
-import  {User} from "./User.ts";
-import type {Permission} from "./Permission.ts";
-export class Role extends PgBase{
+export class Order extends PgBase{
     name: string
-    users:User[]
-    permission:Permission[]
+    user_id:bigint
     async add2({ a, b }: { a: number; b: number }) {
         ctx.info(`User.add called with a=${a}, b=${b}`);
         ctx.info('Request URL:', ctx.req?.url);

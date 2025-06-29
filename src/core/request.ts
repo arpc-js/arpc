@@ -1,6 +1,5 @@
 import { ElMessage } from 'element-plus'
-//const BASE_URL = 'http://localhost'; // 或 import.meta.env.VITE_API_URL
-const BASE_URL = 'http://156.238.240.143';
+const BASE_URL = 'http://127.0.0.1'; // 或 import.meta.env.VITE_API_URL
 export async function post(path: string, body = {}) {
     try {
         const response = await fetch(BASE_URL + path, {
@@ -24,8 +23,7 @@ export async function post(path: string, body = {}) {
                 localStorage.removeItem('token');
                 location.href = '/user/login';
             }
-            ElMessage.error(errorText || '请求失败');
-            return
+            throw new Error(errorText);
         }
         // 正常响应，根据类型解析
         if (contentType.includes('application/json')) {

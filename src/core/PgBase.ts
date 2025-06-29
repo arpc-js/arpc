@@ -14,10 +14,13 @@ export class PgBase {
     is_deleted:boolean //软删除，增加软删除方法，不能查is_deleted的数据
     created_at:Date
     updated_at:Date
+    #list: any[] = [];
     #sel: any[] = [];
     #where: string | null = null;
     #onStatement: string | null = null;
     #onArgs: any[] = [];
+    #page=0
+    #size=0
     //支持3星表达式,支持字符串和数组2种格式，字符串的话切分转数组即可
     //支持exclude,通用字符串逗号分割和数组2种方式
     static sel(...fields: any[]): any {
@@ -39,6 +42,11 @@ export class PgBase {
         this.#sel = fields
         return this;
     }
+    page(page,size): any {
+        this.#page = page
+        this.#size = size
+        return this;
+    }
     setSel(...fields: any[]): any {
         this.#sel = fields
         return this;
@@ -49,6 +57,10 @@ export class PgBase {
     get types(){
         //@ts-ignore
         return this.constructor.types
+    }
+    get list(){
+        //@ts-ignore
+        return this.#list
     }
     wh(where: string) {
         this.#where = where;
@@ -92,25 +104,33 @@ export class PgBase {
         return this.#onArgs;
     }
 
-    //id查询，tag查询，动态查询,都没有this.id作为条件
+    //id查询，tag查询，动态查询,都没有this.id作为条件,this.id也没有，对象动态查询
     //返回多条，单挑自己解构[user]
-    async get(condition: TemplateStringsArray | number | Record<string, any>, ...values: any[]) {
+    async get(condition: TemplateStringsArray | number | Record<string, any>=undefined, ...values: any[]) {
         console.log(condition)
         console.log(values)
         console.log(this)
-        const table = this.constructor.name.toLowerCase();
+        let table = `"${this.constructor.name.toLowerCase()}"`;
         const { selectCols, joins, args: joinArgs, paramCount, groupKeys, groupNames } = getSqlParts(this);
 
         let { whereClause, whereArgs } = buildWhereClause(this, condition, values, paramCount + 1);
 
         if (whereClause) {
-            whereClause += ` AND "${table}".is_deleted is not true`;
+            whereClause += ` AND ${table}.is_deleted is not true`;
         } else {
-            whereClause = `WHERE "${table}".is_deleted is not true`;
+            whereClause = `WHERE ${table}.is_deleted is not true`;
         }
-
-        const text = `SELECT ${selectCols.join(', ')} FROM "${table}" ${joins.join(' ')}${whereClause}`;
-        const allArgs = [...joinArgs, ...whereArgs];
+        let allArgs = [...joinArgs, ...whereArgs];
+        //判断分页，如果有分页就把主表换成分页的,where放前面,参数翻转
+        //若是单表查询page加在where后
+        if (joins.length>0&&this.#page!=0&&this.#size!=0){
+            table=`(select * from ${table} ${whereClause} ORDER BY created_at DESC LIMIT ${this.#size} OFFSET ${(this.#page-1)*this.#size}) as ${table}`;
+            whereClause=''
+            allArgs = [...whereArgs,...joinArgs];
+        }else if (this.#page!=0&&this.#size!=0){
+            whereClause=whereClause+` LIMIT ${this.#size} OFFSET ${(this.#page-1)*this.#size}`
+        }
+        const text = `SELECT ${selectCols.join(', ')} FROM ${table} ${joins.join(' ')}${whereClause}`;
         console.log(text)
         console.log(allArgs)
         const { rows } = await sql.query(text, allArgs);
@@ -121,9 +141,24 @@ export class PgBase {
         if (groupNames.length > 0) {
              grouped = dynamicGroup(rows, groupKeys, groupNames);
         }
+        if (grouped.length == 0) {
+            throw new Error('Not Found');
+        }
         return grouped;
     }
-    //
+
+    async sql(condition: TemplateStringsArray | number | Record<string, any>=undefined, ...values: any[]) {
+        let { whereClause, whereArgs } = buildWhereClause(this, condition, values, 1);
+        const { rows } = await sql.query(whereClause, whereArgs);
+        return rows;
+    }
+    async query(strings: TemplateStringsArray, ...values: any[]) {
+        let { statement, args } = buildSqlClause(strings, values);
+        console.log(statement)
+        console.log(args)
+        const { rows } = await sql.query(statement, args);
+        return rows;
+    }
     //嵌套级联操作条件只能是id，因为id关联的关系
     //默认单条id操作,有条件代表多条操作
     async update(condition: TemplateStringsArray, ...values: any[]) {
@@ -281,6 +316,19 @@ export class PgBase {
         return [row];
     }
 }
+export function buildSqlClause(strings: TemplateStringsArray, values: any[]) {
+    let statement = '';
+    const args: any[] = [];
+    for (let i = 0; i < strings.length; i++) {
+        statement += strings[i];
+        if (i < values.length) {
+            args.push(values[i]);
+            statement += `$${args.length}`; // PostgreSQL uses $1, $2, ...
+        }
+    }
+    return { statement, args };
+}
+
 function buildWhereClause(
     obj,
     conditionInput,
@@ -311,6 +359,18 @@ function buildWhereClause(
     } else if (obj.id) {//什么条件都没有，默认对象id为条件
         whereSql = `"${table}".id = $${paramStartIndex}`;
         whereArgs = [obj.id];
+    }else {
+        const conditions: string[] = [];
+        const args: any[] = [];
+        let idx = paramStartIndex;
+        for (const [key, val] of Object.entries(obj)) {
+            if (val !== undefined && val !== null) {
+                conditions.push(`"${table}".${key} = $${idx++}`);
+                args.push(val);
+            }
+        }
+        whereSql = conditions.join(' AND ');
+        whereArgs = args;
     }
 
     return { whereClause:whereSql ? ` WHERE ${whereSql}` : '', whereArgs };

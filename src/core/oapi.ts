@@ -489,7 +489,7 @@ export function cors(options: CorsOptions = {}) {
         }
 
         if (req.method === 'OPTIONS') {
-            res.status(204).end();
+            res.status(204).text('');
             return; // 结束预检请求
         }
 
@@ -502,6 +502,7 @@ export async function onError(req,  res, next: () => Promise<void>) {
     } catch (err: any) {
         ctx.err( err.message||err);
         ctx.err( err.stack);
-        res.status(400).json({error: err.message||err || 'Bad Request'});
+        //res.status(400).json({error: err.message||err || 'Bad Request'});
+        res.status(400).text(err.message||err || 'Bad Request')
     }
 }

@@ -4,10 +4,10 @@
       <h2 class="login-title">管理后台</h2>
       <el-form class="login-form" label-width="100px" >
         <el-form-item label="用户名" prop="username">
-          <el-input v-model="body.name" placeholder="请输入用户名" prefix-icon="el-icon-user" />
+          <el-input v-model="u.name" placeholder="请输入用户名" prefix-icon="el-icon-user" />
         </el-form-item>
         <el-form-item label="密码" prop="password">
-          <el-input type="password" v-model="body.pwd" placeholder="请输入密码" prefix-icon="el-icon-lock" />
+          <el-input type="password" v-model="u.pwd" placeholder="请输入密码" prefix-icon="el-icon-lock" />
         </el-form-item>
         <!--        <el-form-item label="验证码" prop="captcha">
                   <el-input v-model="o.name" placeholder="请输入验证码" />
@@ -22,15 +22,17 @@
 
 <script setup>
 import { ref} from 'vue';
+import {User} from "../../api/User";
+import router from "../../router";
 
 const body = ref({
   name: '',
   pwd: '',
 });
+let u=new User()
 async function login() {
-/*  let data=await post('/user/login',body.value)
-  localStorage.setItem('token',data.token)
-  getmenus()*/
+  let {token}=await u.login();
+  localStorage.setItem('token',token);
   router.push('/')
 }
 </script>

@@ -56,32 +56,19 @@ function rpc_proxy(mode) {
                 if (mode=='adm'){
                     aa=fns.map(x=>`async ${x}(...args){
                     delete this.model
-              let rsp=await fetch('http://127.0.0.1:3000/${name.toLowerCase()}/${x}',{
-                  method: 'POST',
-                  body:JSON.stringify({...this,sel:this.sel,args:args})
-              })
-              if (rsp?.status!=200){
-                  throw await rsp.text()
-              }
-              return reactive(await rsp.json())
+                    const data  = await post('/${name.toLowerCase()}/${x}',{...this,sel:this.sel,args:args});
+                    return reactive(data);
               }`)
                 }else {
                     aa=fns.map(x=>`async ${x}(...args){
-        const response = await uni.request({
-            url: 'https://127.0.0.1:3000/${name.toLowerCase()}/${x}',
-            method: 'POST',
-            header:{'Authorization':uni.getStorageSync('token')},
-            data: {...this,sel:this.sel,args:args}
-        });
-        if (response.statusCode  === 500) {
-            throw response.data
-        }
-        return reactive(await rsp.json());
+                    const response = await post(${name.toLowerCase()}/${x})
+                return reactive(response);
               }`)
                 }
                 //User源代码被替换了
                 code = `
-                import {reactive} from "vue";
+                import { post } from '../core/request.ts';
+                import {reactive,ref,onMounted,nextTick} from "vue";
                 export class ${name} {
                                 constructor() {
                                    return reactive(this)
@@ -91,7 +78,7 @@ function rpc_proxy(mode) {
                                    const instance = new this();
                                    instance.sel = fields.length > 0 ? fields : ['**'];
                                    instance.model=instance.constructor.name
-                                 return instance;
+                                 return reactive(instance);
                                 } 
                                 ${aa.join('\n')}
                             }
