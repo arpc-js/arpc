@@ -5,9 +5,19 @@ import jwt from "jsonwebtoken";
 import {PgBase} from "../core/PgBase.ts";
 import  {User} from "./User.ts";
 import type {Permission} from "./Permission.ts";
+function col(meta: Record<string, any> = {}) {
+    return function (target: any, key: string) {
+        // 存储每个字段的元信息
+        if (!target.constructor.cols) {
+            target.constructor.cols = {};
+        }
+        target.constructor.cols[key] = meta;
+    };
+}
 export class Role extends PgBase{
     name: string
     users:User[]
+    @col({msel:[]})
     permission:Permission[]
     async add2({ a, b }: { a: number; b: number }) {
         ctx.info(`User.add called with a=${a}, b=${b}`);

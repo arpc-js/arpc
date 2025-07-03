@@ -170,8 +170,10 @@ export class PgBase {
         const setValues = setKeys.map(k => main[k]);
 
         const { whereClause, whereArgs } = buildWhereClause(this, condition, values, setValues.length + 1);
-
         const text = `UPDATE "${table}" SET ${setClause} ${whereClause} RETURNING *`
+        console.log(text)
+        console.log(setValues)
+        console.log(whereArgs)
         const [rows] = await sql.query(text, [...setValues, ...whereArgs])
         return rows
     }

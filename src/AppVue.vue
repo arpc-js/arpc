@@ -52,7 +52,7 @@ const menus = [
     icon: 'Setting',
     children: [
       { title: '用户', path: '/user/gets', icon: 'Avatar' },
-      { title: '角色', path: '/system/role', icon: 'UserFilled' },
+      { title: '角色', path: '/role/gets', icon: 'UserFilled' },
       { title: '权限', path: '/system/user', icon: 'User' },
       { title: '菜单', path: '/system/role', icon: 'UserFilled' }
     ]

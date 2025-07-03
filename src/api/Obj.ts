@@ -18,7 +18,9 @@ export class Obj extends PgBase{
         // 构建属性字符串
         const props = this.attr.map(a => `  ${a.name}: ${a.type};`).join('\n');
         // 构建 class 内容
-        const content = `export class ${className} {${props}}`
+        const content = `export class ${className} {
+        ${props}
+        }`
         await fs.writeFile(filePath, content, 'utf-8');
         console.log(`✅ 类文件已生成: ${filePath}`);
         return 'OK';
