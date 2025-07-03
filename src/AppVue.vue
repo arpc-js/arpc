@@ -80,6 +80,14 @@ const menus = [
     children: [
       { title: '文章列表', path: '/content/articles', icon: 'DocumentCopy' }
     ]
+  },
+  {
+    index: '5',
+    title: '云对象',
+    icon: 'Document',
+    children: [
+      { title: '云对象', path: '/obj/gets', icon: 'DocumentCopy' },
+    ]
   }
 ]
 

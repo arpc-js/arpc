@@ -11,7 +11,7 @@ import jwt from 'jsonwebtoken';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const controllerCache: Record<string, any> = {};
-const controllers: Record<string, any> = {};
+export const controllers: Record<string, any> = {};
 
 interface ContextData {
     req: http.IncomingMessage;
@@ -197,7 +197,7 @@ function capitalize(str: string): string {
 }
 
 function isBasicType(type: string): boolean {
-    return ['string', 'number', 'boolean', 'bigint'].includes(type);
+    return ['string', 'number', 'boolean', 'bigint', 'any', 'unknown'].includes(type);
 }
 
 function castBasicValue(value: any, type: string): any {
@@ -237,20 +237,32 @@ function extractTypesFromFile(filePath: string): Record<string, Record<string, s
 }
 
 async function loadAndInjectTypes(name: string): Promise<any> {
+    if (!name || name === 'any' || name === 'unknown') {
+        return class Dummy {};
+    }
+
     if (controllerCache[name]) return controllerCache[name];
+
     const jsFilePath = path.resolve(__dirname, '../api', `${capitalize(name)}.js`);
     const tsFilePath = jsFilePath.replace(/\.js$/, '.ts');
+
     let typesMap: Record<string, string> = {};
     try {
         typesMap = extractTypesFromFile(tsFilePath)[capitalize(name)] || {};
     } catch (e) {
         console.warn(`[Type Extract Warning] Failed for ${name}:`, (e as Error).message);
     }
-    const mod = await import(pathToFileURL(jsFilePath).toString());
-    const Cls = mod.default ?? mod[capitalize(name)];
-    Cls.types = typesMap;
-    controllerCache[name] = Cls;
-    return Cls;
+
+    try {
+        const mod = await import(pathToFileURL(jsFilePath).toString());
+        const Cls = mod.default ?? mod[capitalize(name)];
+        Cls.types = typesMap;
+        controllerCache[name] = Cls;
+        return Cls;
+    } catch (e) {
+        console.warn(`[Load Failed] Cannot load ${name}.js`, (e as Error).message);
+        return class Dummy {};
+    }
 }
 
 async function deepAssign(instance: any, data: any): Promise<any> {
@@ -267,8 +279,11 @@ async function deepAssign(instance: any, data: any): Promise<any> {
         // ---------- 原逻辑 ----------
         if (typeof declared === 'string') {
             if (declared.endsWith('[]') && Array.isArray(value)) {
-                const itemType = declared.slice(0, -2);
-                if (isBasicType(itemType)) {
+                const itemType = declared.slice(0, -2).trim();
+                if (!itemType || itemType === 'any' || itemType === 'unknown') {
+                    // 不处理类型（直接赋值）
+                    instance[key] = value;
+                } else if (isBasicType(itemType)) {
                     instance[key] = value.map((v: any) => castBasicValue(v, itemType));
                 } else {
                     const Cls = await loadAndInjectTypes(itemType);
@@ -412,8 +427,7 @@ export function auth(whitelist: string[] = [], jwtSecret: string) {
     return async (req: any, res: any, next: () => Promise<void>) => {
         ctx.info(`请求: [${req.method}] ${req.url}`);
 
-        // 白名单直接放行
-        if (whitelist.includes('*')||whitelist.includes(req.url)) {
+        if (whitelist.includes('*') || whitelist.includes(req.url)) {
             await next();
             ctx.info(`响应完成: [${req.method}] ${req.url}`);
             return;
@@ -434,15 +448,16 @@ export function auth(whitelist: string[] = [], jwtSecret: string) {
         }
 
         try {
-            const decoded = jwt.verify(token, jwtSecret); // 解密 + 验签
-            ctx.store && (ctx.store.uid = decoded.uid); // 设置上下文用户ID（你自定义的字段）
+            const decoded = jwt.verify(token, jwtSecret);
+            ctx.store && (ctx.store.uid = decoded.uid);
             ctx.info(`验证成功: uid=${decoded.uid}`);
-            await next();
         } catch (err: any) {
             ctx.info(`Token 无效或过期: ${err.message}`);
             res.status(401).json({ error: "Token invalid or expired" });
+            return;
         }
-
+        // 🟢 真正的路由执行放在验证通过之后，独立 try-catch（如有需要）或者交由上层处理
+        await next();
         ctx.info(`响应完成: [${req.method}] ${req.url}`);
     };
 }

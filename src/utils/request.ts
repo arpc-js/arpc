@@ -20,10 +20,10 @@ export async function post(path: string, body = {}) {
             const errorText = contentType.includes('application/json')
                 ? JSON.stringify(await response.json())
                 : await response.text();
-            if (response.status==401) {
+/*            if (response.status==401) {
                 localStorage.removeItem('token');
                 location.href = '/user/login';
-            }
+            }*/
             ElMessage.error(errorText || '请求失败');
             return
         }
