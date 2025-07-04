@@ -24,3 +24,9 @@ const router = createRouter({
     routes,
 });
 export default router;
+export function to(to:  string) {
+    if (typeof to === 'string') {
+        // 直接用 path 字符串跳转
+        router.push(to)
+    }
+}

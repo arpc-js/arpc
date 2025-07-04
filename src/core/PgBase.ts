@@ -38,18 +38,28 @@ export function getsql() {
     return ctx('tx')||sql
 }
 export class PgBase {
+    // 定义非枚举属性的工具方法
+    setHiddenProp(key: string, value: any) {
+        Object.defineProperty(this, key, {
+            value,
+            writable: true,
+            configurable: true,
+            enumerable: false, // ✅ 不可枚举，不会进数据库
+        });
+    }
     static types={}
     id:bigint
     is_deleted:boolean //软删除，增加软删除方法，不能查is_deleted的数据
     created_at:Date
     updated_at:Date
-    #list: any[] = [];
     #sel: any[] = [];
     #where: string | null = null;
     #onStatement: string | null = null;
     #onArgs: any[] = [];
-    #page=0
-    #size=0
+/*    #page=1
+    #size=10*/
+    #list: any[] = [];
+    #total=0
     //支持3星表达式,支持字符串和数组2种格式，字符串的话切分转数组即可
     //支持exclude,通用字符串逗号分割和数组2种方式
     static sel(...fields: any[]): any {
@@ -71,11 +81,11 @@ export class PgBase {
         this.#sel = fields
         return this;
     }
-    page(page,size): any {
+/*    page(page,size): any {
         this.#page = page
         this.#size = size
         return this;
-    }
+    }*/
     setSel(...fields: any[]): any {
         this.#sel = fields
         return this;
@@ -90,6 +100,25 @@ export class PgBase {
     get list(){
         //@ts-ignore
         return this.#list
+    }
+    get total(){
+        //@ts-ignore
+        return this.#total
+    }
+    get page() {
+        return this._page ?? 1;
+    }
+
+    set page(val: number) {
+        this.setHiddenProp('_page', val);
+    }
+
+    get size() {
+        return this._size ?? 10;
+    }
+
+    set size(val: number) {
+        this.setHiddenProp('_size', val);
     }
     wh(where: string) {
         this.#where = where;
@@ -137,6 +166,30 @@ export class PgBase {
     }
         //id查询，tag查询，动态查询,都没有this.id作为条件,this.id也没有，this对象动态查询
     //返回多条，单挑自己解构[user]
+    async getPage(){
+/*        this.#page = page
+        this.#size = size*/
+        console.log(`page:${this.page}`)
+        let list=await this.get()
+        let total=await this.count()
+        return {list,total}
+    }
+    async count(condition: TemplateStringsArray | number | Record<string, any> = undefined, ...values: any[]) {
+        let table = `"${this.table}"`;
+        const { joins, args: joinArgs, paramCount } = getSqlParts(this);
+        let { whereClause, whereArgs } = buildWhereClause(this, condition, values, paramCount + 1);
+
+        // 加上 is_deleted 条件
+        if (whereClause) {
+            whereClause += ` AND ${table}.is_deleted IS NOT TRUE`;
+        } else {
+            whereClause = `WHERE ${table}.is_deleted IS NOT TRUE`;
+        }
+        const allArgs = [...joinArgs, ...whereArgs];
+        const text = `SELECT COUNT(*) FROM ${table} ${joins.join(' ')} ${whereClause}`;
+        const { rows } = await getsql().query(text, allArgs);
+        return Number(rows[0].count);
+    }
     async get(condition: TemplateStringsArray | number | Record<string, any>=undefined, ...values: any[]) {
         console.log(condition)
         console.log(values)
@@ -154,12 +207,12 @@ export class PgBase {
         let allArgs = [...joinArgs, ...whereArgs];
         //判断分页，如果有分页就把主表换成分页的,where放前面,参数翻转
         //若是单表查询page加在where后
-        if (joins.length>0&&this.#page!=0&&this.#size!=0){
-            table=`(select * from ${table} ${whereClause} ORDER BY created_at DESC LIMIT ${this.#size} OFFSET ${(this.#page-1)*this.#size}) as ${table}`;
+        if (joins.length>0&&this.page!=0&&this.size!=0){
+            table=`(select * from ${table} ${whereClause} ORDER BY id DESC LIMIT ${this.size} OFFSET ${(this.page-1)*this.size}) as ${table}`;
             whereClause=''
             allArgs = [...whereArgs,...joinArgs];
-        }else if (this.#page!=0&&this.#size!=0){
-            whereClause=whereClause+` LIMIT ${this.#size} OFFSET ${(this.#page-1)*this.#size}`
+        }else if (this.page!=0&&this.size!=0){
+            whereClause=whereClause+` ORDER BY id DESC LIMIT ${this.size} OFFSET ${(this.page-1)*this.size}`
         }
         const text = `SELECT ${selectCols.join(', ')} FROM ${table} ${joins.join(' ')}${whereClause}`;
         console.log(text)
@@ -290,7 +343,7 @@ function buildWhereClause(
     values: any[],
     paramStartIndex: number
 ) {
-    let table=obj.table()
+    let table=obj.table
     let whereSql = '';
     let whereArgs: any[] = [];
 

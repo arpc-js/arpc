@@ -15,7 +15,6 @@ export class User extends PgBase {
     order: Order[]
     roles: Role[]
     async login(code) {
-        console.log(await User.sel('id','name',Role.sel('id','name')).page(1,10).get`id>${3}`)
         //ctx.info(`sql:`,await super.query`select * from "user" where id>${1}`);
         ctx.info(`User.add called with a=${this.name}, b=${this.pwd}`);
         ctx.info('Request URL:', ctx.req?.url);

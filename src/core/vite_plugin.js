@@ -11,7 +11,7 @@ function parseAst(classString) {
     let fns=[
         'add','del','update','get','gets',
         'getById','updateById','delById',
-        'sync'
+        'sync','page','getPage'
     ]
     function visit(node) {
         if (ts.isClassDeclaration(node)) {
@@ -58,7 +58,10 @@ function rpc_proxy(mode) {
                     aa=fns.map(x=>`async ${x}(...args){
                     delete this.model
                     const data  = await post('/${name.toLowerCase()}/${x}',{...this,sel:this.sel,args:args});
-                    return reactive(data);
+                    Object.keys(this).forEach(key => key !== 'list' && key !== 'page' && delete this[key])
+                    this.list = data?.list;
+                    this.total = data?.total;
+                    return Array.isArray(data) ? reactive(data.map(item => reactive(item))) : reactive(data);
               }`)
                 }else {
                     aa=fns.map(x=>`async ${x}(...args){
