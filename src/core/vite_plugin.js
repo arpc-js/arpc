@@ -10,7 +10,8 @@ function parseAst(classString) {
     let attr=[]
     let fns=[
         'add','del','update','get','gets',
-        'getById','updateById','delById'
+        'getById','updateById','delById',
+        'sync'
     ]
     function visit(node) {
         if (ts.isClassDeclaration(node)) {

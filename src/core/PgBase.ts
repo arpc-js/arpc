@@ -1,5 +1,6 @@
 //@ts-ignore
 import { Pool } from 'pg'
+import {AsyncLocalStorage} from "async_hooks";
 const sql = new Pool({
     user: 'postgres',
     password: 'postgres',
@@ -7,10 +8,38 @@ const sql = new Pool({
     host: '156.238.240.143',
     port: 5432,
 })
+let asyncLocalStorage= new AsyncLocalStorage()
+function ctx(k: 'tx'): Request | any {
+    return asyncLocalStorage.getStore()?.[k]
+}
+//声明式事务
+export function tx(target: any, methodName: string, descriptor: PropertyDescriptor) {
+    const originalMethod = descriptor.value;
+    descriptor.value = async function (...args: any[]) {
+        const client = await sql.connect(); // 正确获取连接（来自连接池）
+        try {
+            await client.query('BEGIN');
+            let result;
+            await asyncLocalStorage.run({ tx: client }, async () => {
+                result = await originalMethod.apply(this, args);
+            });
+            await client.query('COMMIT');
+            return result;
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release(); // 释放连接（回归连接池）
+        }
+    };
+}
+//同时返回事务还是sql
+export function getsql() {
+    return ctx('tx')||sql
+}
 export class PgBase {
     static types={}
     id:bigint
-    //version:bigint //子类定义，子类有version字段，开启乐观锁，修改失败表示锁冲突
     is_deleted:boolean //软删除，增加软删除方法，不能查is_deleted的数据
     created_at:Date
     updated_at:Date
@@ -51,7 +80,7 @@ export class PgBase {
         this.#sel = fields
         return this;
     }
-    table(){
+    get table(){
      return this.constructor.name.toLowerCase()
     }
     get types(){
@@ -76,12 +105,12 @@ export class PgBase {
     on(strings: TemplateStringsArray | string, ...values: any[]) {
         if (typeof strings === 'string') {
             // 纯字符串，尝试简单加表名前缀
-            this.#onStatement = addTablePrefix(strings, this.constructor.name.toLowerCase());
+            this.#onStatement = addTablePrefix(strings, this.table);
             this.#onArgs = [];
         } else {
             // 标签模板，先转换，再加前缀
             const { statement, args } = tagToPrepareStatement(strings, values, 1);
-            const withPrefix = addTablePrefix(statement, this.constructor.name.toLowerCase());
+            const withPrefix = addTablePrefix(statement, this.table);
             this.#onStatement = withPrefix;
             this.#onArgs = args;
         }
@@ -103,14 +132,16 @@ export class PgBase {
     getOnArgs() {
         return this.#onArgs;
     }
-
-    //id查询，tag查询，动态查询,都没有this.id作为条件,this.id也没有，对象动态查询
+    static async get(condition: TemplateStringsArray | number | Record<string, any>=undefined, ...values: any[]) {
+       return await this.sel('*').get(condition,values)
+    }
+        //id查询，tag查询，动态查询,都没有this.id作为条件,this.id也没有，this对象动态查询
     //返回多条，单挑自己解构[user]
     async get(condition: TemplateStringsArray | number | Record<string, any>=undefined, ...values: any[]) {
         console.log(condition)
         console.log(values)
         console.log(this)
-        let table = `"${this.constructor.name.toLowerCase()}"`;
+        let table = `"${this.table}"`;
         const { selectCols, joins, args: joinArgs, paramCount, groupKeys, groupNames } = getSqlParts(this);
 
         let { whereClause, whereArgs } = buildWhereClause(this, condition, values, paramCount + 1);
@@ -133,7 +164,7 @@ export class PgBase {
         const text = `SELECT ${selectCols.join(', ')} FROM ${table} ${joins.join(' ')}${whereClause}`;
         console.log(text)
         console.log(allArgs)
-        const { rows } = await sql.query(text, allArgs);
+        const { rows } = await getsql().query(text, allArgs);
         console.log(text)
         console.log(groupNames)
         console.log(groupKeys)
@@ -149,20 +180,20 @@ export class PgBase {
 
     async sql(condition: TemplateStringsArray | number | Record<string, any>=undefined, ...values: any[]) {
         let { whereClause, whereArgs } = buildWhereClause(this, condition, values, 1);
-        const { rows } = await sql.query(whereClause, whereArgs);
+        const { rows } = await getsql().query(whereClause, whereArgs);
         return rows;
     }
     async query(strings: TemplateStringsArray, ...values: any[]) {
         let { statement, args } = buildSqlClause(strings, values);
         console.log(statement)
         console.log(args)
-        const { rows } = await sql.query(statement, args);
+        const { rows } = await getsql().query(statement, args);
         return rows;
     }
     //嵌套级联操作条件只能是id，因为id关联的关系
     //默认单条id操作,有条件代表多条操作
-    async update(condition: TemplateStringsArray, ...values: any[]) {
-        const table = this.table();
+    async update(condition: TemplateStringsArray | number | Record<string, any>=null,...values: any[]) {
+        const table = this.table
         const { main, oneToOne, oneToMany } = splitFields(this);
 
         const setKeys = Object.keys(main).filter(k => main[k] !== undefined && main[k] !== null);
@@ -171,133 +202,31 @@ export class PgBase {
 
         const { whereClause, whereArgs } = buildWhereClause(this, condition, values, setValues.length + 1);
         const text = `UPDATE "${table}" SET ${setClause} ${whereClause} RETURNING *`
-        console.log(text)
-        console.log(setValues)
-        console.log(whereArgs)
-        const [rows] = await sql.query(text, [...setValues, ...whereArgs])
+
+        const {rows} = await getsql().query(text, [...setValues, ...whereArgs])
         return rows
     }
     //所有对象，包含子对象通过id增删改，无id增，有修改，有is_deleted软删除
-    async updateById(id=null) {
-        const table = this.constructor.name.toLowerCase();
-        const { main, oneToOne, oneToMany } = splitFields(this);
-        const setKeys = Object.keys(main).filter(k => main[k] !== undefined && main[k] !== null);
-        let setClause = setKeys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
-        const setValues = setKeys.map(k => main[k]);
-
-        id = id ?? this.id;
-        const text = `UPDATE "${table}" SET ${setClause} where "${table}".id=$${setValues.length+1} RETURNING *`
-        const [rows] = await sql.query(text, [...setValues, id])
-        if (!rows.length) return
-        this.id = rows[0]?.id ?? this.id;
-        for (const v of Object.values(oneToOne)) {
-            //修改并维护关系,或者新增维护关系
-            v[`${table}_id`]=this.id
-            //@ts-ignore
-            await v.save()//saveOrUpdate
-        }
-        // 递归插入一对多子对象数组,或多对多
-        for (const arr of Object.values(oneToMany)) {
-            let sub_table=''
-            let ids=[]
-            //@ts-ignore
-            for (const item of arr) {
-                if (!this.isManyToMany(item)){//维护11，1n关系
-                    item[`${table}_id`]=this.id
-                }
-                let [row]=await item.save()
-                if (this.isManyToMany(item)){//维护多对多关系
-                    const joinTableName = [table, sub_table].sort().join('_');
-                    const rdata = {[`${table}_id`]: this.id, [`${sub_table}_id`]: row.id}
-                    await add(joinTableName,rdata)
-                }
-                ids.push(row.id)
-            }
-            //软删除代替了
-            //await deleteRemovedRelations(table, sub_table, this.id, ids, joinTableMap);
-        }
-        return rows?.[0];
+    async del(condition: TemplateStringsArray | number | Record<string, any>=null, ...values: any[]) {
+        this.is_deleted=true
+        return await this.update(condition,...values);
     }
-    async updateWithVersion(condition: TemplateStringsArray | number | Record<string, any>, ...values: any[]) {
-        const table = this.constructor.name.toLowerCase();
-        const { main } = splitFields(this);
-
-        // 过滤要更新的字段
-        const setKeys = Object.keys(main).filter(k => main[k] !== undefined && main[k] !== null);
-        let setClause = setKeys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
-        const setValues = setKeys.map(k => main[k]);
-
-        // 用 buildWhereClause 构造初步 where 条件和参数
-        const { whereClause: baseWhereClause, whereArgs: baseWhereArgs } = buildWhereClause(this, condition, values, setValues.length + 1);
-
-        // version 乐观锁逻辑
-        let whereClause = baseWhereClause;
-        let whereArgs = [...baseWhereArgs];
-        //@ts-ignore
-        if ('version' in this) {
-            // 拼接 SET 子句增加 version 自增
-            setClause += (setClause ? ', ' : '') + `"version" = "version" + 1`;
-            // 拼接 WHERE 条件 version = 当前版本号
-            if (whereClause) {
-                whereClause += ` AND "version" = $${setValues.length + whereArgs.length + 1}`;
-            } else {
-                whereClause = ` WHERE "version" = $${setValues.length + whereArgs.length + 1}`;
-            }
-            //@ts-ignore
-            whereArgs.push(this.version);
-        }
-
-        const text = `UPDATE "${table}" SET ${setClause} ${whereClause} RETURNING *`;
-        const [rows] = await sql.query(text, [...setValues, ...whereArgs]);
-
-        return rows?.[0];
+    //递归ar增删改操作
+    @tx
+    async sync() {
+        return await this._sync();
     }
-    async del(condition: TemplateStringsArray | number | Record<string, any>, ...values: any[]) {
-        const table = this.table()
-
-        const { whereClause, whereArgs } = buildWhereClause(this, condition, values, 1);
-
-        const text = `DELETE FROM "${table}"${whereClause} RETURNING *`;
-        const { rows } = await sql.query(text, whereArgs);
-
-        return rows;
-    }
-    async softDel(condition: TemplateStringsArray | number | Record<string, any>, ...values: any[]) {
-        const table = this.table();
-        const isDeletedValue = true; // 或者 1，根据你的字段类型
-
-        // SET 子句固定：设置 is_deleted = true
-        const setClause = `"is_deleted" = $1`;
-        const setValues = [isDeletedValue];
-
-        // 构造 where 条件，从 param 索引从1开始
-        const { whereClause, whereArgs } = buildWhereClause(this, condition, values, 2);
-
-        const text = `UPDATE "${table}" SET ${setClause} ${whereClause} RETURNING *`;
-
-        const [rows] = await sql.query(text, [...setValues, ...whereArgs]);
-        return rows;
-    }
-
-    //save应用层saveOrUpdate
-    async save(){
-        return this.id?await this.update`id=${this.id}`:await this.add()
-    }
-    //数据库层，可以任意字段冲突
-    async upsert(){
-        return
-    }
-    async add() {
+    async _sync() {
         console.log(this.types)
-        const table = this.constructor.name.toLowerCase();
+        const table = this.table
         const { main, oneToOne, oneToMany } = splitFields(this);
         // 插入主表
-        const [row]=await add(table,main)
+        const [row]=this.id?await this.update():await add(table,main)
         // 插入1对1，如果有id修改对象维护关系，否则插入对象维护关系
         for (const v of Object.values(oneToOne)) {
             v[`${table}_id`]=row.id
-            //@ts-ignore
-            await v.save()
+            //@ts-ignore id判断增改，is_delete的改是删除
+            await v._sync()
         }
         // 遍历所有数组，区分1对多，多多多，如果有id维护关系就行，否则插入并维护关系
         for (const arr of Object.values(oneToMany)) {
@@ -306,8 +235,10 @@ export class PgBase {
                 if (!this.isManyToMany(item)){//维护1对多关系
                     item[`${table}_id`]=row.id
                 }
-                let [item_row]=await item.save()
-                if (this.isManyToMany(item)){//维护多对多关系
+                //@ts-ignore id判断增改，is_delete的改是删除
+                let [item_row]=await item._sync()
+                //insert confict do nothing 维护多对多关系，删除不需要维护新关系
+                if (this.isManyToMany(item)&&!item_row.is_deleted){
                     let sub_table = item.constructor.name.toLowerCase();
                     const joinTableName = [table, sub_table].sort().join('_');
                     const rdata = {[`${table}_id`]: row.id, [`${sub_table}_id`]: item_row.id}
@@ -316,6 +247,28 @@ export class PgBase {
             }
         }
         return [row];
+    }
+    //数据库层，可以任意字段冲突
+    async add() {
+        console.log(this.types)
+        const table = this.table
+        const { main, oneToOne, oneToMany } = splitFields(this);
+        // 插入主表
+        const [row]=await add(table,main)
+        return [row];
+    }
+    async adds(arr) {
+        const table = this.table;
+        if (!arr.length) return [];
+        const keys = Object.keys(arr[0]).filter(k => arr[0][k] != null);
+        const cols = keys.map(k => `"${k}"`).join(',');
+        const placeholders = arr.map((_, i) =>
+            `(${keys.map((_, j) => `$${i * keys.length + j + 1}`).join(',')})`
+        ).join(',');
+        const values = arr.flatMap(obj => keys.map(k => obj[k]));
+        const text = `INSERT INTO "${table}" (${cols}) VALUES ${placeholders} RETURNING *`;
+        const { rows } = await getsql().query(text, values);
+        return rows;
     }
 }
 export function buildSqlClause(strings: TemplateStringsArray, values: any[]) {
@@ -387,68 +340,15 @@ function splitFields(obj) {
     }
     return { main, oneToOne, oneToMany };
 }
-async function syncManyToManyRelations(tableA, tableB, aid, bidList) {
-    const joinTableName = [tableA, tableB].sort().join('_');
-    const [colA, colB] = [tableA, tableB].sort();
-
-    if (!bidList || bidList.length === 0) {
-        // 如果没传任何子 id，删除所有关系
-        await sql.query(`
-      DELETE FROM "${joinTableName}"
-      WHERE "${colA}_id" = $1
-    `, [aid]);
-        return;
-    }
-
-    // 1. 批量插入新关联，冲突时忽略
-    const valuesClause = bidList.map((_, i) => `($1, $${i + 2})`).join(', ');
-    const params = [aid, ...bidList];
-
-    await sql.query(`
-    INSERT INTO "${joinTableName}" ("${colA}_id", "${colB}_id")
-    VALUES ${valuesClause}
-    ON CONFLICT DO NOTHING
-  `, params);
-
-    // 2. 删除没传入的旧关联
-    const placeholders = bidList.map((_, i) => `$${i + 2}`).join(', ');
-    await sql.query(`
-    DELETE FROM "${joinTableName}"
-    WHERE "${colA}_id" = $1 AND "${colB}_id" NOT IN (${placeholders})
-  `, params);
-}
-async function deleteRemovedRelations(table, sub_table, this_id, ids, joinTableMap) {
-    const joinTableName = [table, sub_table].sort().join('_');
-    const hasJoinTable = joinTableMap[joinTableName];
-
-    // 构建 NOT IN 的参数占位符
-    const placeholders = ids.map((_, i) => `$${i + 2}`).join(', ');
-
-    if (hasJoinTable) {
-        // 多对多：删除中间表中的无效关联
-        const sqlText = `
-            DELETE FROM "${joinTableName}"
-            WHERE ${table}_id = $1 AND ${sub_table}_id NOT IN (${placeholders})
-        `;
-        await sql.query(sqlText, [this_id, ...ids]);
-    } else {
-        // 一对多：删除子表中不在 ids 的记录
-        const sqlText = `
-            DELETE FROM "${sub_table}"
-            WHERE ${table}_id = $1 AND id NOT IN (${placeholders})
-        `;
-        await sql.query(sqlText, [this_id, ...ids]);
-    }
-}
 
 async function add(table, obj) {
     const keys = Object.keys(obj).filter(k => obj[k] !== undefined && obj[k] !== null)
     const cols = keys.map(k => `"${k}"`).join(', ')
     const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ')
     const values = Object.values(obj)
-    const text = `INSERT INTO "${table}" (${cols})VALUES (${placeholders}) RETURNING *`
+    const text = `INSERT INTO "${table}" (${cols}) VALUES (${placeholders}) ON CONFLICT DO NOTHING RETURNING *`
     console.log(text,values)
-    const {rows} = await sql.query(text, values)
+    const {rows} = await getsql().query(text, values)
     return rows
 }
 /**

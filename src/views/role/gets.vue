@@ -56,7 +56,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showDialog = false">关闭</el-button>
-        <el-button type="primary" v-if="dialogMode !== 'detail'" @click="role.add()">提交</el-button>
+        <el-button type="primary" v-if="dialogMode !== 'detail'" @click="role.sync()">提交</el-button>
       </template>
     </el-dialog>
   </el-card>
