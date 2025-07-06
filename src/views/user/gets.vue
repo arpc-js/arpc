@@ -90,7 +90,7 @@ function openDialog(mode: 'add' | 'edit' | 'detail', row?: any) {
   showDialog.value = true;
 }
 async function gets() {
-  tableData.value=await User.sel('id','name').get`id>${1}`
+  tableData.value=await User.sel('id','name',Role.sel('name')).get`id>${1}`
 }
 // 提交新增或修改
 async function submit() {

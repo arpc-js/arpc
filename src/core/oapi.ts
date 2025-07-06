@@ -272,8 +272,7 @@ async function deepAssign(instance: any, data: any): Promise<any> {
         const value = data[key];
         const declared = types[key];
         if (key === 'sel' && Array.isArray(value)&&value.length>0) {
-            //instance.sel = await Promise.all(value.map(convertJsonToSelInstance));
-            instance.setSel(await Promise.all(value.map(convertJsonToSelInstance)));
+            instance.setSel(...await Promise.all(value.map(convertJsonToSelInstance)));
             continue;
         }
         // ---------- 原逻辑 ----------

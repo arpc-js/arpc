@@ -13,6 +13,7 @@ function ctx(k: 'tx'): Request | any {
     return asyncLocalStorage.getStore()?.[k]
 }
 //声明式事务
+//上下文+装饰器
 export function tx(target: any, methodName: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
     descriptor.value = async function (...args: any[]) {
@@ -106,6 +107,7 @@ export class PgBase {
         return this.#total
     }
     get page() {
+        //@ts-ignore
         return this._page ?? 1;
     }
 
@@ -114,6 +116,7 @@ export class PgBase {
     }
 
     get size() {
+        //@ts-ignore
         return this._size ?? 10;
     }
 
@@ -166,10 +169,13 @@ export class PgBase {
     }
         //id查询，tag查询，动态查询,都没有this.id作为条件,this.id也没有，this对象动态查询
     //返回多条，单挑自己解构[user]
+    static async getPage(){
+        let obj=this.sel('*')
+        let list=await obj.get()
+        let total=await obj.count()
+        return {list,total}
+    }
     async getPage(){
-/*        this.#page = page
-        this.#size = size*/
-        console.log(`page:${this.page}`)
         let list=await this.get()
         let total=await this.count()
         return {list,total}
@@ -222,11 +228,13 @@ export class PgBase {
         console.log(groupNames)
         console.log(groupKeys)
         let grouped=rows
-        if (groupNames.length > 0) {
-             grouped = dynamicGroup(rows, groupKeys, groupNames);
-        }
         if (grouped.length == 0) {
             throw new Error('Not Found');
+        }
+        if (groupNames.length > 0) {
+             grouped = dynamicGroup(rows, groupKeys, groupNames);
+        }else {
+            grouped = JSON.parse(JSON.stringify(grouped).replaceAll(`${this.table}_`, ''))
         }
         return grouped;
     }
@@ -265,10 +273,12 @@ export class PgBase {
         return await this.update(condition,...values);
     }
     //递归ar增删改操作
+    //角色权限嵌套多表，加声明式事务
     @tx
     async sync() {
         return await this._sync();
     }
+    //防止声明式事务无限递归
     async _sync() {
         console.log(this.types)
         const table = this.table

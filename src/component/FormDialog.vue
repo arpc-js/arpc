@@ -54,7 +54,7 @@ const emit = defineEmits<{
 }>()
 
 // 默认排除字段
-const excludeKeys = computed(() => props.excludeKeys ?? ['id', 'list', 'size', 'total'])
+const excludeKeys = computed(() => props.excludeKeys ?? ['id', 'list', 'size','page','total'])
 
 // 使用 Object.entries 过滤后再遍历，避免 v-if 影响渲染效率和准确性
 const filteredEntries = computed(() =>

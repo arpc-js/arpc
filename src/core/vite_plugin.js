@@ -61,6 +61,7 @@ function rpc_proxy(mode) {
                     Object.keys(this).forEach(key => key !== 'list' && key !== 'page' && delete this[key])
                     this.list = data?.list;
                     this.total = data?.total;
+                    //可以对象克隆，或者转为对应对象
                     return Array.isArray(data) ? reactive(data.map(item => reactive(item))) : reactive(data);
               }`)
                 }else {
@@ -83,6 +84,12 @@ function rpc_proxy(mode) {
                                    instance.sel = fields.length > 0 ? fields : ['**'];
                                    instance.model=instance.constructor.name
                                  return reactive(instance);
+                                } 
+                                 sel(...fields) {
+                                   //const instance = new this();
+                                   this.sel = fields.length > 0 ? fields : ['**'];
+                                   this.model=this.constructor.name
+                                 return this;
                                 } 
                                 ${aa.join('\n')}
                             }
