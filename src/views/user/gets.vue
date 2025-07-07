@@ -45,7 +45,7 @@
       </template>
     </el-dialog>
   </el-card>
-  <el-pagination @current-change="pageNo=>{filter.page=pageNo;gets()}" background layout="total,prev, pager, next" :page-size="filter.size" :total="total" />
+    <el-pagination @current-change="pageNo=>{filter.page=pageNo;gets()}" background layout="total,prev, pager, next" :page-size="filter.size" :total="total" />
 </template>
 
 <script lang="ts" setup>
@@ -81,7 +81,7 @@ function search() {
 // 打开弹窗
 function openDialog(mode: 'add' | 'edit' | 'detail', row?: any) {
   dialogMode.value = mode;
-  dialogTitle.value = mode === 'add' ? '新增权限' : mode === 'edit' ? '修改权限' : '查看详情';
+    dialogTitle.value = mode === 'add' ? '新增权限' : mode === 'edit' ? '修改权限' : '查看详情';
   if (row) {
     body.value = { ...row };
   } else {
@@ -90,7 +90,9 @@ function openDialog(mode: 'add' | 'edit' | 'detail', row?: any) {
   showDialog.value = true;
 }
 async function gets() {
-  tableData.value=await User.sel('id','name',Role.sel('name')).get`id>${1}`
+  let id='1'
+  let name='test1111'
+    tableData.value=await User.sel('id','name',Role.sel('name')).get`id>${1} and name=${name}`
 }
 // 提交新增或修改
 async function submit() {

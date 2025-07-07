@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "npm-run-all -p back adm",
-    "back": "tsx watch src/index.ts",
+    "back": "bun --hot src/index.ts",
+    "bun": "bun --hot src/index.ts",
+    "tsx": "tsx --watch src/index.ts",
     "dev:custom": "uni -p",
     "adm": "vite --port 5174 --mode adm",
     "build": "vite build --mode adm",

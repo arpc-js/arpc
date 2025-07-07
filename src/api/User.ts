@@ -54,4 +54,11 @@ export class User extends PgBase {
         await fs.writeFile(filePath, file.data);  // Promise版写文件
         return {message: 'File saved successfully', path: filePath};
     }
+
+
+
+  async user1(name) {
+    return await User.sel("id", "name", Role.sel("name")).get`id>${1} and name=${name}`
+  }
+
 }
