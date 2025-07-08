@@ -56,9 +56,8 @@ export class User extends PgBase {
     }
 
 
-
   async user1(name) {
-    return await User.sel("id", "name", Role.sel("name")).get`id>${1} and name=${name}`
+    return await User.sel("id", "name", Role.sel("name", Permission.sel("id", "name"))).get`id>${1} and name=${name}`
   }
 
 }

@@ -185,13 +185,10 @@ function dsltransform(mode) {
                 const backendFile = path.resolve(__dirname, '../api/User.ts')
              let clazz = fs.readFileSync(backendFile, 'utf-8')
             const methodRegex = new RegExp(`async\\s+${path.basename(path.dirname(id))}${methodIndex}\\s*\\(`)
-            if (methodRegex.test(clazz)) {
-                return
+            if (!methodRegex.test(clazz)) {
+                clazz = clazz.replace(/}\s*$/, methodSnippets + '\n}')
+                 fs.writeFileSync(backendFile, clazz, 'utf-8')
             }
-
-             clazz = clazz.replace(/}\s*$/, methodSnippets + '\n}')
-            fs.writeFileSync(backendFile, clazz, 'utf-8')
-
             return {
                 code: transformedCode,
                 map: null

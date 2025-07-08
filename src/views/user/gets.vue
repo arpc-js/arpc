@@ -53,6 +53,7 @@ import { ref,onMounted } from 'vue';
 import {post} from "../../utils/request.ts";
 import {User} from "../../api/User.ts";
 import {Role} from "../../api/Role.ts";
+import {Permission} from "../../api/Permission.ts";
 // 过滤器
 const filter = ref({
   name: '',
@@ -90,16 +91,16 @@ function openDialog(mode: 'add' | 'edit' | 'detail', row?: any) {
   showDialog.value = true;
 }
 async function gets() {
-  let id='1'
+  let id='111111'
   let name='test1111'
-    tableData.value=await User.sel('id','name',Role.sel('name')).get`id>${1} and name=${name}`
+    tableData.value=await User.sel('id','name',Role.sel('name',Permission.sel('id','name'))).get`id>${1} and name=${name}`
 }
 // 提交新增或修改
 async function submit() {
   if (dialogMode.value === 'add') {
     await post('/permission/add', body.value);
   } else if (dialogMode.value === 'edit') {
-    await post('/permission/update', body.value);
+    await post('/permission/updat', body.value);
   }
   showDialog.value = false;
   gets();
