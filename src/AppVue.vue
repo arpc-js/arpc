@@ -94,7 +94,7 @@ const menus = [
 const route = useRoute()
 const router = useRouter()
 const activeMenu = ref(route.path)
-const isLoginPage = computed(() => route.path === '/user/login')
+const isLoginPage = computed(() => route.path === '/login')
 
 watch(() => route.path, (newPath) => {
   activeMenu.value = newPath

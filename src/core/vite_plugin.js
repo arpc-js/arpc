@@ -60,16 +60,20 @@ function rpc_proxy(mode) {
         name: 'proxy',
         async transform(code, id) {
             if (id.includes('/src/api') && id.includes('.ts')) {
+                console.log(code)
                 let {name, attr, fns} = parseAst(code)
-                //console.log(name, attr, fns)
+                console.log(name, attr)
                 let aa = null
                 if (mode == 'adm') {
                     aa = fns.map(x => `${x.static} async ${x.name}(...args){
-                    delete this.model
-                    const data  = await post('/${name.toLowerCase()}/${x.name}',{...this,sel:this.sel,args:args});
-                    Object.keys(this).forEach(key => key !== 'list' && key !== 'page' && delete this[key])
-                    this.list = data?.list;
-                    this.total = data?.total;
+                    let {list,total,...rest}=this
+                    const data  = await post('/${name.toLowerCase()}/${x.name}',{...rest,sel:this.sel,args:args});
+                    //Object.keys(this).forEach(key =>typeof this[key] !== 'object'&& key !== 'list' && key !== 'page' && delete this[key])
+                    if (data?.list) {
+                        this.list = data.list;
+                    }
+                    //分页双向绑定了total，变更为空自动刷新分页，不引用不影响
+                    this.total = data.total
                     //可以对象克隆，或者转为对应对象
                     return Array.isArray(data) ? reactive(data.map(item => reactive(item))) : reactive(data);
               }`)

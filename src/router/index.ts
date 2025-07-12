@@ -18,6 +18,9 @@ for (const path in pages) {
 routes.unshift({
     path: '/',
     component: () => import('../views/dash.vue'),
+},{
+    path: '/login',
+        component: () => import('../views/login.vue'),
 });
 const router = createRouter({
     history: createWebHistory(),

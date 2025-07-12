@@ -21,7 +21,7 @@ export async function post(path: string, body = {}) {
                 : await response.text();
             if (response.status==401) {
                 localStorage.removeItem('token');
-                location.href = '/user/login';
+                location.href = '/login';
             }
             throw new Error(errorText);
         }
