@@ -2,7 +2,8 @@ import {controllers, ctx} from '../core/oapi';
 import path from 'path';
 import fs from 'fs/promises';
 import jwt from "jsonwebtoken";
-import {PgBase} from "../core/PgBase.ts";
+import {getsql, PgBase} from "../core/PgBase.ts";
+import sql from "../test/postgres.ts";
 export class Obj extends PgBase{
     name:string
     menu:{}
@@ -60,8 +61,8 @@ export class Obj extends PgBase{
                                 joinTables.add(join);
                                 sqls.push(`
 CREATE TABLE IF NOT EXISTS ${join} (
-  ${a}_id INTEGER REFERENCES ${a}(id) ON DELETE CASCADE,
-  ${b}_id INTEGER REFERENCES ${b}(id) ON DELETE CASCADE,
+  ${a}_id INTEGER,
+  ${b}_id INTEGER,
   PRIMARY KEY (${a}_id, ${b}_id)
 );`.trim());
                             }
@@ -84,23 +85,30 @@ CREATE TABLE IF NOT EXISTS ${join} (
                     columns.push(`${field} ${pgType}`);
                 }
             }
-
+            columns.push(
+                `is_deleted BOOLEAN DEFAULT FALSE`,
+                `created_at TIMESTAMPTZ DEFAULT NOW()`,
+                `updated_at TIMESTAMPTZ DEFAULT NOW()`)
             const createTableSql = `
-CREATE TABLE IF NOT EXISTS ${tableName} (
+CREATE TABLE IF NOT EXISTS "${tableName}" (
   ${columns.join(',\n  ')}
 );`.trim();
             sqls.push(createTableSql);
         }
 
         // 加上反向一对多的外键字段
-        for (const [table, fks] of Object.entries(pendingFK)) {
+/*        for (const [table, fks] of Object.entries(pendingFK)) {
             sqls.push(`-- Auto FK fields on ${table}`);
             sqls.push(`
 ALTER TABLE ${table}
   ADD COLUMN IF NOT EXISTS ${fks.join(',\n  ADD COLUMN IF NOT EXISTS ')}
 ;`.trim());
+        }*/
+        let pool=getsql()
+        for (const sql of sqls) {
+            console.log('sql:',sql)
+            await pool.query(sql); // 按顺序执行每条 SQL
         }
-
         return sqls;
     }
 

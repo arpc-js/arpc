@@ -169,29 +169,59 @@ export class PgBase {
     getOnArgs() {
         return this.#onArgs;
     }
+    reset(): any {
+
+    }
     static async migratePage() {
         const formItems: string[] = []
         const tableColumns: string[] = []
-        console.log(this.name,this.props)
+        const toolbarItems: string[] = []
+
         //@ts-ignore
         for (const key in this.props) {
             //@ts-ignore
             const col = this.props[key]
             const label = col.tag || key
             const model = `obj.${key}`
-            if (col.sel&&typeof col.sel=='string'){
-                col.sel=col.sel.split(' ')
+
+            if (col.sel && typeof col.sel === 'string') {
+                col.sel = col.sel.split(' ')
             }
-            // === 生成 el-form-item ===
+
+            // ===== ✅ 生成筛选区 toolbar =====
+            if (col.filter && !col.hide?.includes('gets')) {
+                if (col.sel) {
+                    const options = col.sel.map((val: any) =>
+                        `<el-option label="${val}" value="${val}" />`
+                    ).join('\n        ')
+                    toolbarItems.push(`
+      <el-form-item label="${label}">
+        <el-select v-model="${model}" value-key="id" clearable placeholder="请选择${label}">
+          ${options}
+        </el-select>
+      </el-form-item>`)
+                } else {
+                    toolbarItems.push(`
+      <el-form-item label="${label}">
+        <el-input v-model="${model}" placeholder="请输入${label}" clearable />
+      </el-form-item>`)
+                }
+            }
+
+            // ===== ✅ 生成表单 form =====
             if (!col.hide?.includes('add')) {
                 if (col.sel) {
                     const multiple = col.filter !== false
                     const isRadio = col.radio === true || col.type === 'radio'
-                    const options = col.sel.map((val: any) =>
+                    let options = col.sel.map((val: any) =>
                         isRadio
                             ? `<el-radio label="${val}">${val}</el-radio>`
                             : `<el-option label="${val}" value="${val}" />`
                     ).join('\n        ')
+                    if (!options) {
+                        options = `<el-option v-for="item in ${model}" :key="item.id" :label="item.name" :value="item" />`
+                    }
+
                     if (isRadio) {
                         formItems.push(`
   <el-form-item label="${label}" prop="${key}">
@@ -245,13 +275,13 @@ export class PgBase {
                 }
             }
 
-            // === 生成 el-table-column ===
+            // ===== ✅ 生成表格列 =====
             if (!col.hide?.includes('gets')) {
                 tableColumns.push(`  <el-table-column prop="${key}" label="${label}" />`)
             }
         }
 
-        // === 操作列 ===
+        // 操作列
         tableColumns.push(`
   <el-table-column label="操作" width="240">
     <template #header>
@@ -262,16 +292,33 @@ export class PgBase {
       <el-button size="small" @click="openDialog('edit', scope.row)">修改</el-button>
       <el-button size="small" type="danger" @click="obj.del(scope.row.id)">删除</el-button>
     </template>
-  </el-table-column>
-  `.trim())
+  </el-table-column>`.trim())
 
+        // ===== ✅ 渲染区域拼接 =====
         const table = `<el-table :data="obj.list" style="width: 100%">\n${tableColumns.join('\n')}\n</el-table>`
         const form = `<el-form :model="obj">\n${formItems.join('\n')}\n</el-form>`
-        let template = temp.replaceAll('--table--', table).replaceAll('--form--', form).replaceAll('clazzPlaceHolder', this.name)
-        await fs.mkdir(`src/views/${this.name.toLowerCase()}`, { recursive: true });
-        await fs.writeFile(`src/views/${this.name.toLowerCase()}/gets.vue`, template);
-        return {table, form}
+        const toolbar = `
+<div class="toolbar">
+  <el-form :inline="true" class="filter-form">
+    ${toolbarItems.join('\n')}
+    <el-form-item>
+      <el-button type="primary" @click="obj.getPage()">查询</el-button>
+    </el-form-item>
+  </el-form>
+</div>`.trim()
+
+        let template = temp
+            .replaceAll('--table--', table)
+            .replaceAll('--form--', form)
+            .replaceAll('--toolbar--', toolbar)
+            .replaceAll('clazzPlaceHolder', this.name)
+
+        await fs.mkdir(`src/views/${this.name.toLowerCase()}`, { recursive: true })
+        await fs.writeFile(`src/views/${this.name.toLowerCase()}/gets.vue`, template)
+
+        return { table, form, toolbar }
     }
+
     static async get(condition: TemplateStringsArray | number | Record<string, any>=undefined, ...values: any[]) {
        return await this.sel('*').get(condition,values)
     }
@@ -335,7 +382,7 @@ export class PgBase {
         await sql.unsafe(statement)
     }
     async getPage(){
-        let list=await this.sel('*').get()
+        let list=await this.get()
         let total=await this.count()
         return {list,total}
     }
@@ -386,6 +433,7 @@ export class PgBase {
         console.log(text)
         console.log(groupNames)
         console.log(groupKeys)
+        console.log(rows)
         let grouped=rows
         if (grouped.length == 0) {
             throw new Error('Not Found');
@@ -465,6 +513,49 @@ export class PgBase {
                     const joinTableName = [table, sub_table].sort().join('_');
                     const rdata = {[`${table}_id`]: row.id, [`${sub_table}_id`]: item_row.id}
                     await add(joinTableName,rdata)
+                }
+            }
+        }
+        return [row];
+    }
+    @tx
+    async cover() {
+        return await this._cover();
+    }
+    //防止声明式事务无限递归
+    async _cover() {
+        console.log(this.types)
+        const table = this.table
+        const { main, oneToOne, oneToMany } = splitFields(this);
+        // 插入主表
+        const [row]=this.id?await this.update():await add(table,main)
+        // 插入1对1，如果有id修改对象维护关系，否则插入对象维护关系
+        for (const v of Object.values(oneToOne)) {
+            v[`${table}_id`]=row.id
+            //@ts-ignore id判断增改，is_delete的改是删除
+            await v._sync()
+            //解引用
+        }
+        // 遍历所有数组，区分1对多，多多多，如果有id维护关系就行，否则插入并维护关系
+        for (const arr of Object.values(oneToMany)) {
+            //@ts-ignore
+            for (const item of arr) {
+                if (!this.isManyToMany(item)){//维护1对多关系
+                    item[`${table}_id`]=row.id
+                    //解引用
+                }
+                //@ts-ignore id判断增改，is_delete的改是删除
+                let [item_row]=await item._sync()
+                //insert confict do nothing 维护多对多关系，删除不需要维护新关系
+                if (this.isManyToMany(item)&&!item_row.is_deleted){
+                    let sub_table = item.constructor.name.toLowerCase();
+                    const joinTableName = [table, sub_table].sort().join('_');
+                    const rdata = {[`${table}_id`]: row.id, [`${sub_table}_id`]: item_row.id}
+                    await add(joinTableName,rdata)
+                    //解引用
+                    let sql=getsql()
+                    let text = `update ${joinTableName} set is_deleted=true where ${table}_id=${row.id} and ${sub_table}_id not in (${arr.map(i => i.id).join(',')})`
+                    await sql.query(text)
                 }
             }
         }
@@ -630,7 +721,7 @@ function getSqlParts(root: PgBase) {
                 const joinTableName = tables.join('_');
                 if (model.isManyToMany(field)) {
                     if (!joinedTables.has(joinTableName)) {
-                        joins.push(`LEFT JOIN "${joinTableName}" ON "${tableName}".id = "${joinTableName}".${tableName}_id`);
+                        joins.push(`LEFT JOIN "${joinTableName}" ON "${tableName}".id = "${joinTableName}".${tableName}_id and "${joinTableName}".is_deleted is not true`);
                         joinedTables.add(joinTableName);
                     }
                     if (!joinedTables.has(childTable)) {
@@ -866,20 +957,11 @@ let temp = `
 <template>
   <el-card>
     <!-- 筛选区域 -->
-    <div class="toolbar">
-      <el-form :inline="true" class="filter-form">
-        <el-form-item label="名称">
-          <el-input v-model="obj.name" placeholder="Enter name" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="obj.getPage()">查询</el-button>
-        </el-form-item>
-      </el-form>
-    </div>
+    --toolbar--
     <!-- 表格区域 -->
     --table--
     <!-- 弹窗：新增/修改/详情 -->
-    <el-dialog :title="dialogTitle" v-model="showDialog" width="400px">
+    <el-dialog :title="dialogTitle" v-model="showDialog" width="400px" @close="obj.reset()">
     --form--
       <template #footer>
         <el-button @click="showDialog = false">关闭</el-button>

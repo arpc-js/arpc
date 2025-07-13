@@ -39,6 +39,7 @@ export async function post(path: string, body = {}) {
     } catch (err: any) {
         ElMessage.error(err.message || '请求异常');
         console.error('请求异常:', err);
-        throw err;
+        //throw err;
+        return {list:[],total:0}
     }
 }

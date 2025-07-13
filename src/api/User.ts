@@ -8,9 +8,9 @@ const err = (msg: string) => (e: any) => {
     throw new Error(msg);
 };
 export class User extends PgBase {
-    @prop({ tag: '权限1', sel: ['上海', '北京'],filter: true,hide:['get', 'add', 'update']})
+    @prop({ tag: '名称',filter: true})
     name: string
-    @prop({ tag: '权限1', sel: ['上海', '北京'],filter: true,hide:['get', 'add', 'update']})
+    @prop({ tag: '密码',filter: true})
     pwd: string
     async login(code) {
         //console.log(await User.sel('id','name',Role.sel('id','name')).page(1,10).get`id>${3}`)

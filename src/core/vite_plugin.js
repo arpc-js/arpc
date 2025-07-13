@@ -22,8 +22,10 @@ function parseAst(classString) {
         { name: 'updateById', static: '' },
         { name: 'delById', static: '' },
         { name: 'sync', static: '' },
+        { name: 'cover', static: '' },
         { name: 'page', static: '' },
-        { name: 'getPage', static: '' }
+        { name: 'getPage', static: '' },
+        { name: 'reset', static: '' }
     ];
 
     function visit(node) {
@@ -66,9 +68,14 @@ function rpc_proxy(mode) {
                 let aa = null
                 if (mode == 'adm') {
                     aa = fns.map(x => `${x.static} async ${x.name}(...args){
+                    if('${x.name}'=='reset'){
+                        deepClear(this);//深度置空
+                        return
+                    }
+                    delete this.model //第一个类不需要model能确定
                     let {list,total,...rest}=this
                     const data  = await post('/${name.toLowerCase()}/${x.name}',{...rest,sel:this.sel,args:args});
-                    //Object.keys(this).forEach(key =>typeof this[key] !== 'object'&& key !== 'list' && key !== 'page' && delete this[key])
+                    deepClear(this);//深度置空
                     if (data?.list) {
                         this.list = data.list;
                     }
@@ -86,6 +93,7 @@ function rpc_proxy(mode) {
                 //User源代码被替换了
                 code = `
                 import { post } from '../core/request.ts';
+                import { deepClear } from '../core/utils.js';
                 import {reactive,ref,onMounted,nextTick} from "vue";
                 export class ${name} {
                                 constructor() {
