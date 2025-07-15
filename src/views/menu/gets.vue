@@ -37,7 +37,7 @@
   </el-table-column>
 </el-table>
     <!-- 弹窗：新增/修改/详情 -->
-    <el-dialog :title="dialogTitle" v-model="showDialog" width="400px" @close="obj.reset()">
+    <el-dialog :title="dialogTitle" v-model="showDialog" width="1000px" @close="obj.reset()">
     <el-form :model="obj">
 
   <el-form-item label="名称" prop="name">

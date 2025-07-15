@@ -16,8 +16,7 @@
     <!-- 表格区域 -->
     <el-table :data="tableData" style="width: 100%">
       <el-table-column prop="id" label="ID" width="100" />
-      <el-table-column prop="name" label="用户名" />
-      <el-table-column prop="path" label="路径" />
+      <el-table-column prop="name" label="云对象" />
       <el-table-column label="操作" width="240">
         <template #header>
           <el-button size="small" @click="openDialog('add')">新增</el-button>
@@ -70,11 +69,12 @@
                 style="width: 40%; margin-right: 8px"
                 :disabled="dialogMode === 'detail'"
             >
-              <el-option label="string" value="string" />
-              <el-option label="number" value="number" />
-              <el-option label="boolean" value="boolean" />
-              <el-option label="Date" value="Date" />
-              <el-option label="any" value="any" />
+              <el-option
+                  v-for="type in typeOptions"
+                  :key="type"
+                  :label="type"
+                  :value="type"
+              />
             </el-select>
             <el-select
                 v-model="attr.input"
@@ -105,6 +105,7 @@
                 v-model="attr.hide"
                 multiple
                 placeholder="隐藏"
+
                 :disabled="dialogMode === 'detail'"
             >
               <el-option label="详情" value="get" />
@@ -148,7 +149,7 @@ const filter = ref({
 // 表格数据
 const tableData = ref([])
 const total = ref(0)
-
+const typeOptions = ref([])
 // 弹窗控制
 const showDialog = ref(false)
 const dialogMode = ref<'add' | 'edit' | 'detail'>('add')
@@ -156,12 +157,10 @@ const dialogTitle = ref('')
 
 // 实例化对象 o
 const o = new Obj()
-o.menu = { name: '', parent: '' }  // ✅ 这样是可以的
-o.attr = []
-console.log(o)
 // 获取数据列表
 async function gets() {
   tableData.value = await o.gets()
+  typeOptions.value = await o.getTypes()
 }
 gets()
 
@@ -172,12 +171,19 @@ function search() {
 
 // 打开弹窗
 function openDialog(mode: 'add' | 'edit' | 'detail', row?: any) {
-  console.log(o)
   dialogMode.value = mode
   dialogTitle.value = mode === 'add' ? '新增' : mode === 'edit' ? '编辑' : '查看详情'
+
   if (mode === 'add') {
+    // 清空
+    Object.assign(o, new Obj()) // 重置对象
+    o.menu = { name: '', parent: '' }
+    o.attr = []
   } else if (row) {
+    // 核心补充：把 row 的值赋给 o（推荐使用深拷贝）
+    Object.assign(o, JSON.parse(JSON.stringify(row))) // 避免引用混乱
   }
+
   showDialog.value = true
 }
 
@@ -190,7 +196,7 @@ function addAttr() {
 async function submitAdd() {
   await o.add() // 内部已 RPC 写入 .ts 文件
   showDialog.value = false
-  //gets()
+  gets()
 }
 
 // 删除

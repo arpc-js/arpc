@@ -4,14 +4,14 @@
     <!-- 筛选区域 -->
     <div class="toolbar">
   <el-form :inline="true" class="filter-form">
-
+    
       <el-form-item label="名称">
         <el-input v-model="obj.name" placeholder="请输入名称" clearable />
       </el-form-item>
 
       <el-form-item label="菜单">
-        <el-select v-model="obj.menus" clearable placeholder="请选择菜单">
-
+        <el-select v-model="obj.menus" value-key="id" clearable placeholder="请选择菜单">
+          
         </el-select>
       </el-form-item>
 
@@ -40,7 +40,7 @@
   </el-table-column>
 </el-table>
     <!-- 弹窗：新增/修改/详情 -->
-    <el-dialog :title="dialogTitle" v-model="showDialog" width="400px" @close="obj.reset()">
+    <el-dialog :title="dialogTitle" v-model="showDialog" width="1000px" @close="obj.reset()">
     <el-form :model="obj">
 
   <el-form-item label="名称" prop="name">
@@ -48,14 +48,63 @@
   </el-form-item>
 
   <el-form-item label="菜单" prop="menus">
-    <el-select v-model="obj.menus" multiple value-key="id">
-      <el-option v-for="item in obj.menus" :key="item.id" :label="item.name" :value="item" />
-    </el-select>
+    <el-table :data="obj.menus" style="width: 100%">
+      
+      <el-table-column label="名称" prop="name">
+        <template #default="scope">
+          <el-input v-model="scope.row.name" placeholder="请输入" />
+        </template>
+      </el-table-column>
+
+      <el-table-column label="上级id" prop="parent_id">
+        <template #default="scope">
+          <el-input v-model="scope.row.parent_id" placeholder="请输入" />
+        </template>
+      </el-table-column>
+
+      <el-table-column label="路径" prop="path">
+        <template #default="scope">
+          <el-input v-model="scope.row.path" placeholder="请输入" />
+        </template>
+      </el-table-column>
+
+      <el-table-column label="图标" prop="icon">
+        <template #default="scope">
+          <el-input v-model="scope.row.icon" placeholder="请输入" />
+        </template>
+      </el-table-column>
+
+      <el-table-column label="排序" prop="index">
+        <template #default="scope">
+          <el-input v-model="scope.row.index" placeholder="请输入" />
+        </template>
+      </el-table-column>
+
+      <el-table-column label="角色" prop="roles">
+        <template #default="scope">
+          <el-input v-model="scope.row.roles" placeholder="请输入" />
+        </template>
+      </el-table-column>
+      <el-table-column align="right">
+      <template #header>
+        <el-button size="small" @click="obj.menus.push({})">新增</el-button>
+      </template>
+      <template #default="scope">
+        <el-button
+            size="small"
+            type="danger"
+            @click="obj.menus.splice(scope.$index, 1)"
+        >
+          Delete
+        </el-button>
+      </template>
+    </el-table-column>
+    </el-table>
   </el-form-item>
 </el-form>
       <template #footer>
         <el-button @click="showDialog = false">关闭</el-button>
-        <el-button type="primary" v-if="dialogMode !== 'detail'" @click="obj.cover().then(() => showDialog = false)">提交</el-button>
+        <el-button type="primary" v-if="dialogMode !== 'detail'" @click="obj.sync().then(() => showDialog = false)">提交</el-button>
       </template>
     </el-dialog>
   </el-card>
@@ -66,9 +115,8 @@
 import { ref,onMounted } from 'vue';
 
 import {Role} from "../../api/Role.ts";
-import {Menu} from "../../api/Menu.ts";
 let obj=new Role()
-obj.sel('id','name',Menu.sel('id','name')).getPage()
+obj.getPage()
 onMounted(async () => {
   console.log('页面加载完成，执行函数')
 })
@@ -76,13 +124,13 @@ const showDialog = ref(false);
 const dialogMode = ref<'add' | 'edit' | 'detail'>('add')
 const dialogTitle = ref('')
 //@ts-ignore
-async function openDialog(mode, row) {
+function openDialog(mode, row) {
   dialogMode.value = mode;
   dialogTitle.value = mode === 'add' ? '新增' : mode === 'edit' ? '修改' : '查看详情';
   if (row) {
     Object.assign(obj, row)
   } else {
-    obj.menus = await Menu.sel('*').get()
+    Object.assign(obj, {})
   }
   showDialog.value = true;
 }

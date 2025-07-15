@@ -4,14 +4,22 @@ import fs from 'fs/promises';
 import jwt from "jsonwebtoken";
 import {PgBase, prop} from "../core/PgBase.ts";
 import {Role} from "./Role.ts";
+import {Menu} from "./Menu.ts";
+import type {Profile} from "./Profile.ts";
 const err = (msg: string) => (e: any) => {
     throw new Error(msg);
 };
 export class User extends PgBase {
-    @prop({ tag: '名称',filter: true})
+    @prop({ tag: '名称',filter: true,required: true, rules: [{ min: 2, message: '至少2个字' }]})
     name: string
     @prop({ tag: '密码',filter: true})
     pwd: string
+    @prop({ tag: '密码',sel: ['北京','上海','深圳'],hide:['update']})
+    city: string
+    @prop({ tag: '菜单',filter: true})
+    menus: Menu[]
+    @prop({ tag: '简历',filter: true})
+    profile: Profile
     async login(code) {
         //console.log(await User.sel('id','name',Role.sel('id','name')).page(1,10).get`id>${3}`)
         //ctx.info(`sql:`,await super.query`select * from "user" where id>${1}`);

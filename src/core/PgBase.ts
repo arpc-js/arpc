@@ -1,7 +1,6 @@
 //@ts-ignore
 import { Pool } from 'pg'
 import {AsyncLocalStorage} from "async_hooks";
-import {promises as fs} from "fs";
 const sql = new Pool({
     user: 'postgres',
     password: 'postgres',
@@ -172,152 +171,6 @@ export class PgBase {
     reset(): any {
 
     }
-    static async migratePage() {
-        const formItems: string[] = []
-        const tableColumns: string[] = []
-        const toolbarItems: string[] = []
-
-        //@ts-ignore
-        for (const key in this.props) {
-            //@ts-ignore
-            const col = this.props[key]
-            const label = col.tag || key
-            const model = `obj.${key}`
-
-            if (col.sel && typeof col.sel === 'string') {
-                col.sel = col.sel.split(' ')
-            }
-
-            // ===== ✅ 生成筛选区 toolbar =====
-            if (col.filter && !col.hide?.includes('gets')) {
-                if (col.sel) {
-                    const options = col.sel.map((val: any) =>
-                        `<el-option label="${val}" value="${val}" />`
-                    ).join('\n        ')
-                    toolbarItems.push(`
-      <el-form-item label="${label}">
-        <el-select v-model="${model}" value-key="id" clearable placeholder="请选择${label}">
-          ${options}
-        </el-select>
-      </el-form-item>`)
-                } else {
-                    toolbarItems.push(`
-      <el-form-item label="${label}">
-        <el-input v-model="${model}" placeholder="请输入${label}" clearable />
-      </el-form-item>`)
-                }
-            }
-
-            // ===== ✅ 生成表单 form =====
-            if (!col.hide?.includes('add')) {
-                if (col.sel) {
-                    const multiple = col.filter !== false
-                    const isRadio = col.radio === true || col.type === 'radio'
-                    let options = col.sel.map((val: any) =>
-                        isRadio
-                            ? `<el-radio label="${val}">${val}</el-radio>`
-                            : `<el-option label="${val}" value="${val}" />`
-                    ).join('\n        ')
-                    if (!options) {
-                        options = `<el-option v-for="item in ${model}" :key="item.id" :label="item.name" :value="item" />`
-                    }
-
-                    if (isRadio) {
-                        formItems.push(`
-  <el-form-item label="${label}" prop="${key}">
-    <el-radio-group v-model="${model}">
-      ${options}
-    </el-radio-group>
-  </el-form-item>`)
-                    } else {
-                        formItems.push(`
-  <el-form-item label="${label}" prop="${key}">
-    <el-select v-model="${model}" ${multiple ? 'multiple' : ''}>
-      ${options}
-    </el-select>
-  </el-form-item>`)
-                    }
-                } else if (col.msel) {
-                    const options = col.msel.map((val: any) =>
-                        `<el-checkbox label="${val}">${val}</el-checkbox>`
-                    ).join('\n        ')
-                    formItems.push(`
-  <el-form-item label="${label}" prop="${key}">
-    <el-checkbox-group v-model="${model}">
-      ${options}
-    </el-checkbox-group>
-  </el-form-item>`)
-                } else if (col.type === 'date') {
-                    formItems.push(`
-  <el-form-item label="${label}" prop="${key}">
-    <el-date-picker v-model="${model}" type="date" />
-  </el-form-item>`)
-                } else if (col.type === 'textarea') {
-                    formItems.push(`
-  <el-form-item label="${label}" prop="${key}">
-    <el-input type="textarea" v-model="${model}" />
-  </el-form-item>`)
-                } else if (col.type === 'number') {
-                    formItems.push(`
-  <el-form-item label="${label}" prop="${key}">
-    <el-input-number v-model="${model}" />
-  </el-form-item>`)
-                } else if (col.type === 'switch') {
-                    formItems.push(`
-  <el-form-item label="${label}" prop="${key}">
-    <el-switch v-model="${model}" />
-  </el-form-item>`)
-                } else {
-                    formItems.push(`
-  <el-form-item label="${label}" prop="${key}">
-    <el-input v-model="${model}" />
-  </el-form-item>`)
-                }
-            }
-
-            // ===== ✅ 生成表格列 =====
-            if (!col.hide?.includes('gets')) {
-                tableColumns.push(`  <el-table-column prop="${key}" label="${label}" />`)
-            }
-        }
-
-        // 操作列
-        tableColumns.push(`
-  <el-table-column label="操作" width="240">
-    <template #header>
-      <el-button size="small" @click="openDialog('add')">新增</el-button>
-    </template>
-    <template #default="scope">
-      <el-button size="small" @click="openDialog('detail', scope.row)">详情</el-button>
-      <el-button size="small" @click="openDialog('edit', scope.row)">修改</el-button>
-      <el-button size="small" type="danger" @click="obj.del(scope.row.id)">删除</el-button>
-    </template>
-  </el-table-column>`.trim())
-
-        // ===== ✅ 渲染区域拼接 =====
-        const table = `<el-table :data="obj.list" style="width: 100%">\n${tableColumns.join('\n')}\n</el-table>`
-        const form = `<el-form :model="obj">\n${formItems.join('\n')}\n</el-form>`
-        const toolbar = `
-<div class="toolbar">
-  <el-form :inline="true" class="filter-form">
-    ${toolbarItems.join('\n')}
-    <el-form-item>
-      <el-button type="primary" @click="obj.getPage()">查询</el-button>
-    </el-form-item>
-  </el-form>
-</div>`.trim()
-
-        let template = temp
-            .replaceAll('--table--', table)
-            .replaceAll('--form--', form)
-            .replaceAll('--toolbar--', toolbar)
-            .replaceAll('clazzPlaceHolder', this.name)
-
-        await fs.mkdir(`src/views/${this.name.toLowerCase()}`, { recursive: true })
-        await fs.writeFile(`src/views/${this.name.toLowerCase()}/gets.vue`, template)
-
-        return { table, form, toolbar }
-    }
 
     static async get(condition: TemplateStringsArray | number | Record<string, any>=undefined, ...values: any[]) {
        return await this.sel('*').get(condition,values)
@@ -329,57 +182,6 @@ export class PgBase {
         let list=await obj.get()
         let total=await obj.count()
         return {list,total}
-    }
-    static async migrate(pname='',created=[]) {
-        //有pname说明我是子表，子表的pname是多个代表多对多要额外建立关系表
-        //补充改表名，添加字段，删除字段，修改字段名称和类型，索引，自动迁移
-        if (created.includes(this.name)){
-            return
-        }
-        created.push(this.name)
-        //delete this['meta']['plugin']
-        let sql=getsql()
-        let types=this.types
-        if (types[pname+'s']?.includes('[]')){
-            //子有多个父多对多，有bug还可能是多对1，两边都是多
-            //一对多，反过来看一对一，1对多
-            //一对多，反过来看1多多，代表多对多
-            let list=[pname,this.name].sort()
-            let rtable=`${list[0]}_${list[1]}`
-            let statement=`create table if not exists "${rtable}"(${pname}_id integer,${this.name}_id integer)`
-            await sql.unsafe(statement)
-        }
-        let body = Object.entries(types).map(([k, v]) => {
-            let type = this['meta'][k]
-            if (k == 'id') {
-                return `id SERIAL PRIMARY KEY`
-            } else if (type == 'bigint[]') {
-                return `"${k}" integer []`
-            } else if (type == 'string[]') {
-                return `"${k}" varchar []`
-            } else if (type == 'any') {
-                return `"${k}" jsonb`
-            } else if (type == 'bigint') {
-                return `"${k}" integer`
-            } else if (type == 'string') {
-                return `"${k}" varchar`
-            } else if (type == 'number') {
-                return `"${k}" double precision`
-            }else if (type == 'Date') {
-                return `"${k}" TIMESTAMPTZ`
-            }else {//操作子表
-                type=type.replaceAll('[]','')
-                import(`../api/${type}`).then((cls) => {
-                    const targetClass = cls[type]
-                    targetClass.migrate(this.name.toLowerCase(),created)
-                })
-                return ''
-            }
-        })
-        body=body.filter(x=>{return x!=''})
-        let statement=`create table if not exists "${this.name}"(${body})`
-        console.log(statement)
-        await sql.unsafe(statement)
     }
     async getPage(){
         let list=await this.get()
@@ -935,6 +737,7 @@ const mockDbRows = [
 })();*/
 export function prop(meta: Record<string, any> = {}) {
     return function (target: any, key: string) {
+        meta.key=key
         // 存储每个字段的元信息
         if (!target.constructor.props) {
             target.constructor.props = {};
@@ -952,59 +755,4 @@ export function menu(meta: string | { name: string; parent?: string; icon?: stri
         }
     };
 }
-//@ts-ignore
-let temp = `
-<template>
-  <el-card>
-    <!-- 筛选区域 -->
-    --toolbar--
-    <!-- 表格区域 -->
-    --table--
-    <!-- 弹窗：新增/修改/详情 -->
-    <el-dialog :title="dialogTitle" v-model="showDialog" width="400px" @close="obj.reset()">
-    --form--
-      <template #footer>
-        <el-button @click="showDialog = false">关闭</el-button>
-        <el-button type="primary" v-if="dialogMode !== 'detail'" @click="obj.sync().then(() => showDialog = false)">提交</el-button>
-      </template>
-    </el-dialog>
-  </el-card>
-  <el-pagination v-model:current-page="obj.page" v-model:page-size="obj.size" :total="obj.total" @current-change="obj.getPage()" background layout="total,prev, pager, next"  />
-</template>
 
-<script lang="ts" setup>
-import { ref,onMounted } from 'vue';
-
-import {clazzPlaceHolder} from "../../api/clazzPlaceHolder.ts";
-let obj=new clazzPlaceHolder()
-obj.getPage()
-onMounted(async () => {
-  console.log('页面加载完成，执行函数')
-})
-const showDialog = ref(false);
-const dialogMode = ref<'add' | 'edit' | 'detail'>('add')
-const dialogTitle = ref('')
-//@ts-ignore
-function openDialog(mode, row) {
-  dialogMode.value = mode;
-  dialogTitle.value = mode === 'add' ? '新增' : mode === 'edit' ? '修改' : '查看详情';
-  if (row) {
-    Object.assign(obj, row)
-  } else {
-    Object.assign(obj, {})
-  }
-  showDialog.value = true;
-}
-</script>
-
-<style scoped>
-.toolbar {
-  margin-bottom: 20px;
-}
-.filter-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-</style>
-`
