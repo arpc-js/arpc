@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       isVue ? vue() : uni(),
       rpc_proxy(mode),
-      //dsltransform(),
+      dsltransform(),
       AutoImport({
         resolvers: [ElementPlusResolver()],
       }),

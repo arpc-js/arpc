@@ -4,14 +4,14 @@
     <!-- 筛选区域 -->
     <div class="toolbar">
   <el-form :inline="true" class="filter-form">
-    
+
       <el-form-item label="名称">
         <el-input v-model="obj.name" placeholder="请输入名称" clearable />
       </el-form-item>
 
       <el-form-item label="菜单">
         <el-select v-model="obj.menus" value-key="id" clearable placeholder="请选择菜单">
-          
+
         </el-select>
       </el-form-item>
 
@@ -49,7 +49,7 @@
 
   <el-form-item label="菜单" prop="menus">
     <el-table :data="obj.menus" style="width: 100%">
-      
+
       <el-table-column label="名称" prop="name">
         <template #default="scope">
           <el-input v-model="scope.row.name" placeholder="请输入" />
@@ -115,10 +115,12 @@
 import { ref,onMounted } from 'vue';
 
 import {Role} from "../../api/Role.ts";
+import {Permission} from "../../api/Permission.ts";
 let obj=new Role()
 obj.getPage()
 onMounted(async () => {
-  console.log('页面加载完成，执行函数')
+  let rsp=await Role.sel('id','name',Permission.sel('id','name')).get`id>=${1}`
+  console.log(rsp)
 })
 const showDialog = ref(false);
 const dialogMode = ref<'add' | 'edit' | 'detail'>('add')

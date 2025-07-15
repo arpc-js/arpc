@@ -1,3 +1,4 @@
+import { Permission } from './Permission'
 import {PgBase, prop} from "../core/PgBase.ts";
 import  {User} from "./User.ts";
 import {Menu} from "./Menu.ts";
@@ -9,4 +10,21 @@ export class Role extends PgBase {
     menus: Menu[]
     @prop({ tag: '用户',filter: true,hide:['add']})
     users: User[]
+    @prop({ tag: '用户',filter: true,hide:['add']})
+    permissions: Permission[]
+
+
+
+  
+  
+  
+  
+  async role_vue_1() {
+    return await Role.sel('id','name',Permission.sel('id','name')).get`id>=${1}`
+  }
+
+
+
+
+
 }

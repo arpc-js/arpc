@@ -8,6 +8,7 @@
     "tsx": "tsx --watch src/index.ts",
     "dev:custom": "uni -p",
     "adm": "vite --port 5174 --mode adm",
+    "bun_adm": "vite --port 5174 --mode adm",
     "build": "vite build --mode adm",
     "h5": "uni",
     "dev:h5:ssr": "uni --ssr",
