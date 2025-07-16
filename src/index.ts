@@ -1,6 +1,6 @@
 import {auth, cors, oapi, onError} from "./core/oapi.ts";
 
-const app = oapi();
+const app = oapi({rpcDir:'src/api'});
 app.use(onError); // 放最前面
 app.use(cors({origin: '*'}));
 //白名单，私钥

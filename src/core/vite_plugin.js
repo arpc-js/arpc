@@ -1,7 +1,7 @@
 import * as ts from "typescript";
 import path from "path";
 import fs from "fs";
-
+const basicTypes = ['string', 'number', 'boolean', 'bigint', 'any', 'Date'];
 function parseAst(classString) {
     const sourceFile = ts.createSourceFile(
         'temp.ts',
@@ -42,7 +42,13 @@ function parseAst(classString) {
 
                 // 提取属性信息
                 else if (ts.isPropertyDeclaration(member)) {
-                    const propName = member.name.getText(sourceFile);
+                    let propName = member.name.getText(sourceFile);
+                    let typeStr = member.type.getText(sourceFile);
+                    if (typeStr.endsWith('[]')) {
+                        propName+= '=[]'; // 是数组
+                    } else if (!basicTypes.includes(typeStr)) {
+                        propName+= '={}'; // 非基本类型视为对象（Role, Permission 等）
+                    }
                     attr.push(propName);
                 }
             });

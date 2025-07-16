@@ -82,6 +82,12 @@ export class PgBase {
         this.#sel = fields
         return this;
     }
+    set set_sel(value: any[]) {
+        if (!Array.isArray(value)) {
+            throw new TypeError('sel must be an array');
+        }
+        console.log(value)
+    }
 /*    page(page,size): any {
         this.#page = page
         this.#size = size
@@ -356,6 +362,7 @@ export class PgBase {
                     await add(joinTableName,rdata)
                     //解引用
                     let sql=getsql()
+                    //@ts-ignore
                     let text = `update ${joinTableName} set is_deleted=true where ${table}_id=${row.id} and ${sub_table}_id not in (${arr.map(i => i.id).join(',')})`
                     await sql.query(text)
                 }
@@ -434,7 +441,7 @@ function buildWhereClause(
         const args: any[] = [];
         let idx = paramStartIndex;
         for (const [key, val] of Object.entries(obj)) {
-            if (val !== undefined && val !== null) {
+            if (val !== undefined && val !== null&& typeof val!== "object") {
                 conditions.push(`"${table}".${key} = $${idx++}`);
                 args.push(val);
             }

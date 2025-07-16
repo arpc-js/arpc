@@ -19,9 +19,15 @@ export class Role extends PgBase {
   
   
   
+  
+  
+  
   async role_vue_1() {
     return await Role.sel('id','name',Permission.sel('id','name')).get`id>=${1}`
   }
+
+
+
 
 
 

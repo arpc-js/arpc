@@ -243,18 +243,15 @@ async function loadAndInjectTypes(name: string): Promise<any> {
 
     if (controllerCache[name]) return controllerCache[name];
 
-    const jsFilePath = path.resolve(__dirname, '../api', `${capitalize(name)}.js`);
-    const tsFilePath = jsFilePath.replace(/\.js$/, '.ts');
-
     let typesMap: Record<string, string> = {};
     try {
-        typesMap = extractTypesFromFile(tsFilePath)[capitalize(name)] || {};
+        typesMap = extractTypesFromFile(`${conf.rpcDir}/${capitalize(name)}.ts`)[capitalize(name)] || {};
     } catch (e) {
         console.warn(`[Type Extract Warning] Failed for ${name}:`, (e as Error).message);
     }
 
     try {
-        const mod = await import(pathToFileURL(jsFilePath).toString());
+        const mod = await import(pathToFileURL(`${conf.rpcDir}/${capitalize(name)}.ts`).toString());
         const Cls = mod.default ?? mod[capitalize(name)];
         Cls.types = typesMap;
         controllerCache[name] = Cls;
@@ -304,18 +301,18 @@ async function deepAssign(instance: any, data: any): Promise<any> {
 
 
 // ------------ 最核心的 oapi ------------
-
-export function oapi() {
+let conf:{ rpcDir?: string } = {}
+export function oapi(options: { rpcDir?: string } = {}) {
     const middlewares: Function[] = [];
-
+    options.rpcDir = options.rpcDir ?? 'src/api';
+    conf=options
     return {
         use(mw: (req: Request, res: Response, next: () => Promise<void>) => Promise<void> | void) {
             middlewares.push(mw);
         },
 
         async listen(port = 3000) {
-            const controllerPath = path.resolve(__dirname, '../api');
-            const files = await readdir(controllerPath);
+            const files = await readdir(conf.rpcDir);
             await Promise.all(files
                 .filter(f => f.endsWith('.js') || f.endsWith('.ts'))
                 .map(async file => {
@@ -380,22 +377,15 @@ export function oapi() {
                                 response.status(400).json({ error: e.message || 'Bad Request' });
                                 return;
                             }
-
-                            let result;
-                            if (Array.isArray(data.args)) {
-                                const instance = await deepAssign(new Ctrl(), data);
-                                result = await instance[methodName](...data.args);
-                            } else {
-                                const instance = new Ctrl();
-                                result = await instance[methodName](data);
-                            }
+                            const instance = await deepAssign(new Ctrl(), data);
+                            const args = Array.isArray(data.args) ? data.args : [data];
+                            const result = await instance[methodName](...args);
                             response.status(200).json(result);
                         }
                     }
                     await next();
                 });
             });
-
             server.listen(port, () => {
                 console.log(`Server running at http://localhost:${port}`);
             });
