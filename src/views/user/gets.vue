@@ -137,7 +137,9 @@ import { ref,onMounted } from 'vue';
 
 import {User} from "../../api/User.ts";
 let obj=new User()
+console.log(obj)
 obj.getPage()
+
 onMounted(async () => {
   console.log('页面加载完成，执行函数')
 })
@@ -152,8 +154,7 @@ function openDialog(mode, row) {
     Object.assign(obj, row)
   } else {
     Object.assign(obj, {})
-    obj.menus=[]
-    obj.profile={}
+
   }
   showDialog.value = true;
 }

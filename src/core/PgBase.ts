@@ -1,6 +1,7 @@
 //@ts-ignore
 import { Pool } from 'pg'
 import {AsyncLocalStorage} from "async_hooks";
+import {controllers} from "./oapi.ts";
 const sql = new Pool({
     user: 'postgres',
     password: 'postgres',
@@ -63,9 +64,32 @@ export class PgBase {
     #total=0
     //支持3星表达式,支持字符串和数组2种格式，字符串的话切分转数组即可
     //支持exclude,通用字符串逗号分割和数组2种方式
-    static sel(...fields: any[]): any {
+    static sel(...fields: (string | any)[]): any {
+        // 处理 '*', '**', '***' 形式
+        if (
+            fields.length === 1 &&
+            typeof fields[0] === 'string'
+        ) {
+            const raw = fields[0].trim();
+
+            // 如果是全由星号组成，表示递归深度
+            const starMatch = raw.match(/^(\*{1,5})$/); // 最多5个星号
+            if (starMatch) {
+                const depth = starMatch[1].length;
+                const instance = new this();
+                instance.#sel = generateAllFieldsRecursive(this, depth);
+                return instance;
+            }
+
+            // 支持 'id,name' 字符串形式
+            if (raw.includes(',')) {
+                fields = raw.split(',').map(f => f.trim());
+            }
+        }
+
+        // 默认逻辑
         const instance = new this();
-        instance.#sel = fields.length > 0 ? fields : ['**'];
+        instance.#sel = fields
         return instance;
     }
     isManyToMany(that): boolean {
@@ -506,7 +530,7 @@ function getSqlParts(root: PgBase) {
 
     function walk(model: PgBase, tableName: string) {
         let sel = model.getSel();
-        sel = sel?.[0] !== undefined ? sel : ['*'];
+        //sel = sel?.[0] !== undefined ? sel : ['*'];
         console.log(`sel:`,sel)
         // 假设每张表都有 id 字段
         groupKeys.push(`${tableName}_id`);
@@ -761,5 +785,31 @@ export function menu(meta: string | { name: string; parent?: string; icon?: stri
             target.menu = meta;
         }
     };
+}
+
+function generateAllFieldsRecursive(ModelClass: any, depth = 3): any[] {
+    const fields: any[] = [];
+    const types = ModelClass.types || {};
+
+    // depth=1 表示只查当前字段，不递归
+    const shouldRecurse = depth > 1;
+
+    for (const [key, type] of Object.entries(types)) {
+        if (['string', 'number', 'boolean', 'bigint', 'Date', 'any', 'unknown'].includes(type)) {
+            fields.push(key);
+        } else if (shouldRecurse) {
+            const isArray = type.endsWith('[]');
+            const subTypeName = isArray ? type.slice(0, -2) : type;
+            const SubClass = controllers[subTypeName.toLowerCase()];
+            if (SubClass) {
+                fields.push(
+                    SubClass.sel(...generateAllFieldsRecursive(SubClass, depth - 1))
+                        .on(`${ModelClass.name}.${key}_id=${SubClass.name}.id`)
+                );
+            }
+        }
+    }
+
+    return fields;
 }
 

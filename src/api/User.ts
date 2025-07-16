@@ -20,8 +20,10 @@ export class User extends PgBase {
     menus: Menu[]
     @prop({ tag: '简历',filter: true})
     profile: Profile
+    @prop({ tag: '角色',filter: true})
+    roles: Role[]
     async login(code) {
-        //console.log(await User.sel('id','name',Role.sel('id','name')).page(1,10).get`id>${3}`)
+        let user=await User.sel('**').get`id>${1}`
         //ctx.info(`sql:`,await super.query`select * from "user" where id>${1}`);
         ctx.info(`User.add called with a=${this.name}, b=${this.pwd}`);
         ctx.info('Request URL:', ctx.req?.url);
