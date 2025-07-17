@@ -1,15 +1,14 @@
 import http from 'http';
 import { readdir } from 'fs/promises';
 import fs from 'fs';
-import path from 'path';
 import { pathToFileURL, fileURLToPath } from 'url';
 import ts from 'typescript';
 import { URL } from 'url';
 import { AsyncLocalStorage } from 'async_hooks';
 import { IncomingForm, File } from 'formidable';
 import jwt from 'jsonwebtoken';
+import {initDB} from "./ARBase.ts";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const controllerCache: Record<string, any> = {};
 export const controllers: Record<string, any> = {};
 
@@ -237,10 +236,12 @@ function extractTypesFromFile(filePath: string): Record<string, Record<string, s
 }
 
 async function loadAndInjectTypes(name: string): Promise<any> {
-    if (!name || name === 'any' || name === 'unknown') {
-        return class Dummy {};
+    if (!name || name === 'any' || name === 'unknown'|| name === '{}') {
+        return {};
     }
-
+    if (name === '[]') {
+        return [];
+    }
     if (controllerCache[name]) return controllerCache[name];
 
     let typesMap: Record<string, string> = {};
@@ -266,6 +267,7 @@ async function deepAssign(instance: any, data: any): Promise<any> {
     const types = instance.constructor.types || {};
     for (const key in data) {
         if (key === 'args') continue;
+        if (!(key in {...types,page:0,size:0,sel:null})) continue; // 只处理定义过的字段
         const value = data[key];
         const declared = types[key];
         if (key === 'sel' && Array.isArray(value)&&value.length>0) {
@@ -298,19 +300,36 @@ async function deepAssign(instance: any, data: any): Promise<any> {
 
     return instance;
 }
+interface MiddlewareContext {
+    ctx: any;        // 你自己的上下文类型，比如 { traceId: string, user?: User } 等
+    req: Request;
+    res: Response;
+    next: () => Promise<void>;
+}
 
+type Middleware = (params: MiddlewareContext) => Promise<void> | void;
 
 // ------------ 最核心的 oapi ------------
-let conf:{ rpcDir?: string } = {}
-export function oapi(options: { rpcDir?: string } = {}) {
+let conf:{ rpcDir?: string,dsn?:string } = {}
+export function Arpc(options: { rpcDir?: string,dsn?:string } = {}) {
+    //重写promise原型链
+    Promise.prototype.err = function (msg) {
+        return this.catch(e => {
+            const err = new Error(msg);
+            err.stack += '\nCaused by: ' + (e.stack || e);
+            throw err;
+        });
+    };
     const middlewares: Function[] = [];
     options.rpcDir = options.rpcDir ?? 'src/api';
     conf=options
+    if (conf.dsn){
+        initDB(conf.dsn)
+    }
     return {
-        use(mw: (req: Request, res: Response, next: () => Promise<void>) => Promise<void> | void) {
+        use(mw: Middleware) {
             middlewares.push(mw);
         },
-
         async listen(port = 3000) {
             const files = await readdir(conf.rpcDir);
             await Promise.all(files
@@ -334,7 +353,7 @@ export function oapi(options: { rpcDir?: string } = {}) {
                     const next = async () => {
                         index++;
                         if (index < middlewares.length) {
-                            await middlewares[index](request, response, next);
+                            await middlewares[index]({ctx,req:request, res:response, next});
                         } else {
                             const [_, ctrlNameLower, methodName] = pathname.split('/');
                             const Ctrl = controllers[ctrlNameLower];
@@ -378,7 +397,7 @@ export function oapi(options: { rpcDir?: string } = {}) {
                                 return;
                             }
                             const instance = await deepAssign(new Ctrl(), data);
-                            const args = Array.isArray(data.args) ? data.args : [data];
+                            const args = data.args?.[0] != undefined? data.args : [data];
                             const result = await instance[methodName](...args);
                             response.status(200).json(result);
                         }
@@ -412,8 +431,8 @@ async function convertJsonToSelInstance(item: any): Promise<any> {
 // 跨域中间件工厂
 // 鉴权中间件工厂，传入期望的token
 // 可配置：白名单和密钥
-export function auth(whitelist: string[] = [], jwtSecret: string) {
-    return async (req: any, res: any, next: () => Promise<void>) => {
+export function auth(secret: string,whitelist: string[] = []) {
+    return async ({req,res,next}) => {
         ctx.info(`请求: [${req.method}] ${req.url}`);
 
         if (whitelist.includes('*') || whitelist.includes(req.url)) {
@@ -437,7 +456,7 @@ export function auth(whitelist: string[] = [], jwtSecret: string) {
         }
 
         try {
-            const decoded = jwt.verify(token, jwtSecret);
+            const decoded = jwt.verify(token, secret);
             ctx.store && (ctx.store.uid = decoded.uid);
             ctx.info(`验证成功: uid=${decoded.uid}`);
         } catch (err: any) {
@@ -467,7 +486,7 @@ export function cors(options: CorsOptions = {}) {
         maxAge = 0,
     } = options;
 
-    return async (req: any, res: any, next: () => Promise<void>) => {
+    return async ({req,res,next}) => {
         const requestOrigin = req.headers.origin;
 
         // 处理 origin
@@ -500,8 +519,9 @@ export function cors(options: CorsOptions = {}) {
         await next();
     };
 }
-export async function onError(req,  res, next: () => Promise<void>) {
+export async function onError({req,res,next}) {
     try {
+        console.log(req.url)
         await next();
     } catch (err: any) {
         ctx.err( err.message||err);
@@ -509,4 +529,17 @@ export async function onError(req,  res, next: () => Promise<void>) {
         //res.status(400).json({error: err.message||err || 'Bad Request'});
         res.status(400).text(err.message||err || 'Bad Request')
     }
+}
+export function required(...fields: string[]) {
+    return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+        const originalMethod = descriptor.value;
+        descriptor.value = function (...args: any[]) {
+            for (const field of fields) {
+                if (!this[field]) {
+                    throw new Error(`参数${field}不能为空`);
+                }
+            }
+            return originalMethod.apply(this, args);
+        };
+    };
 }

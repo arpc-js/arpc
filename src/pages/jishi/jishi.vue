@@ -50,8 +50,8 @@
   </view>
 </template>
 <script>
-import {User} from "../../api/User";
-import {Order} from "../../api/Order";
+import {User} from "../../arpc/User";
+import {Order} from "../../arpc/Order";
 
 export default {
   components: {},

@@ -1,14 +1,13 @@
 //@ts-ignore
 import { Pool } from 'pg'
 import {AsyncLocalStorage} from "async_hooks";
-import {controllers} from "./oapi.ts";
-const sql = new Pool({
-    user: 'postgres',
-    password: 'postgres',
-    database: 'postgres',
-    host: '156.238.240.143',
-    port: 5432,
-})
+import {controllers} from "./arpc.ts";
+let  sql
+export function initDB(dsn) {
+    sql=new Pool({
+        connectionString: dsn
+    })
+}
 let asyncLocalStorage= new AsyncLocalStorage()
 function ctx(k: 'tx'): Request | any {
     return asyncLocalStorage.getStore()?.[k]
@@ -39,7 +38,7 @@ export function tx(target: any, methodName: string, descriptor: PropertyDescript
 export function getsql() {
     return ctx('tx')||sql
 }
-export class PgBase {
+export class ARBase {
     // 定义非枚举属性的工具方法
     setHiddenProp(key: string, value: any) {
         Object.defineProperty(this, key, {
@@ -235,9 +234,7 @@ export class PgBase {
         return Number(rows[0].count);
     }
     async get(condition: TemplateStringsArray | number | Record<string, any>=undefined, ...values: any[]) {
-        console.log(condition)
-        console.log(values)
-        console.log(this)
+        console.log(this.page)
         let table = `"${this.table}"`;
         const { selectCols, joins, args: joinArgs, paramCount, groupKeys, groupNames } = getSqlParts(this);
 
@@ -265,7 +262,6 @@ export class PgBase {
         console.log(text)
         console.log(groupNames)
         console.log(groupKeys)
-        console.log(rows)
         let grouped=rows
         if (grouped.length == 0) {
             throw new Error('Not Found');
@@ -515,7 +511,7 @@ function addTablePrefix(sql: string, tableName: string): string {
     });
 }
 
-function getSqlParts(root: PgBase) {
+function getSqlParts(root: ARBase) {
     const rootName = root.constructor.name.toLowerCase();
     let selectCols: string[] = [];
     const joins: string[] = [];
@@ -528,7 +524,7 @@ function getSqlParts(root: PgBase) {
 
     joinedTables.add(rootName);
 
-    function walk(model: PgBase, tableName: string) {
+    function walk(model: ARBase, tableName: string) {
         let sel = model.getSel();
         //sel = sel?.[0] !== undefined ? sel : ['*'];
         console.log(`sel:`,sel)
@@ -548,7 +544,7 @@ function getSqlParts(root: PgBase) {
                 } else {
                     selectCols.push(`"${tableName}".${field} AS ${tableName}_${field}`);
                 }
-            } else if (field instanceof PgBase) {
+            } else if (field instanceof ARBase) {
                 const childTable = field.constructor.name.toLowerCase();
                 const tables = [tableName, childTable].sort();
                 const joinTableName = tables.join('_');
@@ -701,22 +697,22 @@ function isTaggedTemplateCall(strings,values) {
 
 
 // 模型定义
-class Permission extends PgBase {
+class Permission extends ARBase {
     code: string;
 }
-class Menu extends PgBase {
+class Menu extends ARBase {
     name: string;
     path: string;
 }
-class Role extends PgBase {
+class Role extends ARBase {
     name: string;
     permissions: Permission[];
     menus: Menu[];
 }
-class Order extends PgBase {
+class Order extends ARBase {
     name: string;
 }
-class User extends PgBase {
+class User extends ARBase {
     name: string;
     roles: Role[];
     orders: Order[];
@@ -795,10 +791,13 @@ function generateAllFieldsRecursive(ModelClass: any, depth = 3): any[] {
     const shouldRecurse = depth > 1;
 
     for (const [key, type] of Object.entries(types)) {
+        //@ts-ignore
         if (['string', 'number', 'boolean', 'bigint', 'Date', 'any', 'unknown'].includes(type)) {
             fields.push(key);
         } else if (shouldRecurse) {
+            //@ts-ignore
             const isArray = type.endsWith('[]');
+            //@ts-ignore
             const subTypeName = isArray ? type.slice(0, -2) : type;
             const SubClass = controllers[subTypeName.toLowerCase()];
             if (SubClass) {
@@ -809,7 +808,6 @@ function generateAllFieldsRecursive(ModelClass: any, depth = 3): any[] {
             }
         }
     }
-
     return fields;
 }
 

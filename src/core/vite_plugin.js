@@ -68,7 +68,7 @@ function rpc_proxy(mode) {
         name: 'proxy',
         enforce: 'pre',
         async transform(code, id) {
-            if (id.includes('/src/api') && id.includes('.ts')) {
+            if (id.includes('/src/arpc') && id.includes('.ts')) {
                 let {name, attr, fns} = parseAst(code)
                 let aa = null
                 if (mode == 'adm') {
@@ -79,7 +79,7 @@ function rpc_proxy(mode) {
                     }
                     delete this.model //第一个类不需要model能确定
                     let {list,total,...rest}=this
-                    const data  = await post('/${name.toLowerCase()}/${x.name}',{...rest,sel:this.sel,args:args});
+                    const data  = await post(this,'/${name.toLowerCase()}/${x.name}',{...rest,sel:this.sel,args:args});
                     deepClear(this);//深度置空
                     if (data?.list) {
                         this.list = data.list;
@@ -146,18 +146,15 @@ function switchIndex(mode) {
         }
     }
 }
-
-
 function dsltransform(mode) {
     let lastWriteTime = 0;
     const WRITE_INTERVAL = 2000; // 2秒节流，限制写文件频率
-
     return {
         name: 'dsl-transform',
         enforce: 'pre',
         async transform(code, id) {
             if (!id.endsWith('.vue')) return;
-
+            console.log(id)
             const pattern = /(\w+)\.sel\s*\(([\s\S]*?)\)\s*\.get\s*`([\s\S]*?)`/g;
 
             if (!pattern.test(code)) {
@@ -226,7 +223,7 @@ function dsltransform(mode) {
 
             // 批量写入后端文件，限制写入频率避免无限热更新
             for (const caller in generatedMethods) {
-                const backendFile = path.resolve(__dirname, `../api/${caller}.ts`);
+                const backendFile = path.resolve(__dirname, `../arpc/${caller}.ts`);
 
                 let clazz = '';
                 if (fs.existsSync(backendFile)) {
@@ -291,6 +288,4 @@ function dsltransform(mode) {
         },
     };
 }
-
-
 export {switchIndex, rpc_proxy,dsltransform}

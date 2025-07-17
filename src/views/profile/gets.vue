@@ -4,7 +4,7 @@
     <!-- 筛选区域 -->
     <div class="toolbar">
   <el-form :inline="true" class="filter-form">
-    
+
       <el-form-item label="简历名称">
         <el-input v-model="obj.name" placeholder="请输入简历名称" clearable />
       </el-form-item>
@@ -61,7 +61,7 @@
 <script lang="ts" setup>
 import { ref,onMounted } from 'vue';
 
-import {Profile} from "../../api/Profile.ts";
+import {Profile} from "../../arpc/Profile.ts";
 let obj=new Profile()
 obj.getPage()
 onMounted(async () => {

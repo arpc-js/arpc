@@ -1,8 +1,8 @@
-import {PgBase, prop} from "../core/PgBase.ts";
+import {ARBase, prop} from "../core/ARBase.ts";
 import  {User} from "./User.ts";
 import type {Role} from "./Role.ts";
 //后端代码，无代码
-export class Profile extends PgBase {
+export class Profile extends ARBase {
     @prop({ tag: '简历名称',filter: true})
     name: string
     @prop({ tag: '简历内容',filter: true})

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import {User} from "../api/User.ts";
+import {User} from "../arpc/User.ts";
 import {onMounted, ref} from "vue";
-import {Role} from "../api/Role.ts";
-import {Permission} from "../api/Permission.ts";
+import {Role} from "../arpc/Role.ts";
+import {Permission} from "../arpc/Permission.ts";
 let msg=ref('')
 let u=new User()
 onMounted(async ()=>{

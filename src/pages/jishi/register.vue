@@ -26,7 +26,7 @@
   </view>
 </template>
 <script>
-import {User} from "../../api/User";
+import {User} from "../../arpc/User";
 
 export default {
   data() {

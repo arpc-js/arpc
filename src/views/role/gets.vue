@@ -114,12 +114,12 @@
 <script lang="ts" setup>
 import { ref,onMounted } from 'vue';
 
-import {Role} from "../../api/Role.ts";
-import {Permission} from "../../api/Permission.ts";
+import {Role} from "../../arpc/Role.ts";
+import {Permission} from "../../arpc/Permission.ts";
 let obj=new Role()
 obj.getPage()
 onMounted(async () => {
-  let rsp=await Role.sel('id','name',Permission.sel('id','name')).get`id>=${1}`
+   let rsp=await Role.sel('id','name',Permission.sel('id','name')).get`id>=${1}`
   console.log(rsp)
 })
 const showDialog = ref(false);

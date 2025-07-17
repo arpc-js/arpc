@@ -137,7 +137,7 @@
 <script lang="ts" setup>
 import { reactive, ref } from 'vue'
 import { post } from '../../utils/request.ts'
-import { Obj } from '../../api/Obj.ts'
+import { Obj } from '../../arpc/Obj.ts'
 
 // 过滤器
 const filter = ref({

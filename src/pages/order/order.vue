@@ -55,7 +55,7 @@
 </template>
 
 <script>
-import { Order } from "../../api/Order";
+import { Order } from "../../arpc/Order";
 
 export default {
   data() {

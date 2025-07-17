@@ -1,8 +1,8 @@
-import {controllers} from '../core/oapi';
+import {controllers} from '../core/arpc.ts';
 import path from 'path';
 import fs from 'fs/promises';
-import {getsql, PgBase} from "../core/PgBase.ts";
-export class Obj extends PgBase{
+import {getsql, ARBase} from "../core/ARBase.ts";
+export class Obj extends ARBase{
     name:string
     menu:{}
     attr:[]

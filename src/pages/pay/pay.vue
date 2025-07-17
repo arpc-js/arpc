@@ -57,7 +57,7 @@
 <script setup>
 import {ref, reactive, computed, getCurrentInstance} from 'vue'
 import { onLoad } from '@dcloudio/uni-app';
-import {Order} from "../../api/Order";
+import {Order} from "../../arpc/Order";
 // 商品数据
 const instance = getCurrentInstance();
 const chatStore = instance?.appContext.config.globalProperties.chatStore;

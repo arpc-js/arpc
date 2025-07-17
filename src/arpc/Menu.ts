@@ -1,6 +1,6 @@
-import {PgBase,prop,menu} from "../core/PgBase.ts"
-@menu({"name":"","parent":""})        
-export class Menu extends PgBase{
+import {ARBase,prop,menu} from "../core/ARBase.ts"
+@menu({"name":"","parent":""})
+export class Menu extends ARBase{
     @prop({"tag":"名称","filter":true,"hide":[]})
     name: string;
     @prop({"tag":"上级id","filter":true,"hide":[]})

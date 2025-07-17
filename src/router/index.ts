@@ -17,7 +17,7 @@ for (const path in pages) {
 // 手动添加非 views 页面组件，如首页 HelloWorld
 routes.unshift({
     path: '/',
-    component: () => import('../views/dash.vue'),
+    component: () => import('../views/home.vue'),
 },{
     path: '/login',
         component: () => import('../views/login.vue'),

@@ -44,7 +44,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import {Order} from "../../api/Order";
+import {Order} from "../../arpc/Order";
 
 const inputAmount = ref(''); // 输入的金额
 

@@ -4,7 +4,7 @@
     <!-- 筛选区域 -->
     <div class="toolbar">
   <el-form :inline="true" class="filter-form">
-    
+
       <el-form-item label="名称">
         <el-input v-model="obj.name" placeholder="请输入名称" clearable />
       </el-form-item>
@@ -72,7 +72,7 @@
 <script lang="ts" setup>
 import { ref,onMounted } from 'vue';
 
-import {Menu} from "../../api/Menu.ts";
+import {Menu} from "../../arpc/Menu.ts";
 let obj=new Menu()
 obj.getPage()
 onMounted(async () => {

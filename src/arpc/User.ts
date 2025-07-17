@@ -1,15 +1,11 @@
-import {ctx} from '../core/oapi';
-import path from 'path';
-import fs from 'fs/promises';
+import {ctx, required} from '../core/arpc.ts';
 import jwt from "jsonwebtoken";
-import {PgBase, prop} from "../core/PgBase.ts";
+import {ARBase, prop} from "../core/ARBase.ts";
 import {Role} from "./Role.ts";
 import {Menu} from "./Menu.ts";
 import type {Profile} from "./Profile.ts";
-const err = (msg: string) => (e: any) => {
-    throw new Error(msg);
-};
-export class User extends PgBase {
+import {secret} from "../index.ts";
+export class User extends ARBase {
     @prop({ tag: '名称',filter: true,required: true, rules: [{ min: 2, message: '至少2个字' }]})
     name: string
     @prop({ tag: '密码',filter: true})
@@ -22,13 +18,13 @@ export class User extends PgBase {
     profile: Profile
     @prop({ tag: '角色',filter: true})
     roles: Role[]
+    @required('name', 'pwd')//验证参数和
     async login(code) {
-        let user=await User.sel('**').get`id>${1}`
-        //ctx.info(`sql:`,await super.query`select * from "user" where id>${1}`);
+/*        let user=await User.sel('id,name').get`id>${1}`
         ctx.info(`User.add called with a=${this.name}, b=${this.pwd}`);
-        ctx.info('Request URL:', ctx.req?.url);
-        let [u] = await super.get().catch(err('用户名或密码错误'));
-        const token = jwt.sign({uid: u.id}, 'secret', {expiresIn: '2h'});
+        ctx.info('Request URL:', ctx.req?.url);*/
+        let [u] = await super.get().err('找不到')
+        const token = jwt.sign({uid: u.id}, secret, {expiresIn: '2h'});
         return {token};
     }
     async add2({a, b}: { a: number; b: number }) {
@@ -40,6 +36,4 @@ export class User extends PgBase {
     async get111(id) {
         return await Role.sel('id', 'name').get(id)
     }
-
-
 }

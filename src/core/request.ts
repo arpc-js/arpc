@@ -1,6 +1,7 @@
 import { ElMessage } from 'element-plus'
+import {deepClear} from "./utils";
 const BASE_URL = 'http://127.0.0.1'; // 或 import.meta.env.VITE_API_URL
-export async function post(path: string, body = {}) {
+export async function post(obj,path: string, body = {}) {
     try {
         const response = await fetch(BASE_URL + path, {
             method: 'POST',
@@ -39,7 +40,11 @@ export async function post(path: string, body = {}) {
     } catch (err: any) {
         ElMessage.error(err.message || '请求异常');
         console.error('请求异常:', err);
-        //throw err;
-        return {list:[],total:0}
+        if (err.message=='Not Found'){
+            obj.total=0
+            obj.list=[]
+            //deepClear(obj)
+        }
+        throw err;
     }
 }

@@ -35,8 +35,8 @@
   </view>
 </template>
 <script>
-import {User} from "../../api/User";
-import {Spu} from "../../api/Spu";
+import {User} from "../../arpc/User";
+import {Spu} from "../../arpc/Spu";
 export default {
   components: {},
   data() {
