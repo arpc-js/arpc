@@ -1,11 +1,11 @@
-import {ctx, required} from '../core/arpc.ts';
+import {ctx, required} from '../core/Arpc.ts';
 import jwt from "jsonwebtoken";
-import {ARBase, prop} from "../core/ARBase.ts";
+import {ArBase, prop} from "../core/ArBase.ts";
 import {Role} from "./Role.ts";
 import {Menu} from "./Menu.ts";
 import type {Profile} from "./Profile.ts";
 import {secret} from "../index.ts";
-export class User extends ARBase {
+export class User extends ArBase {
     @prop({ tag: '名称',filter: true,required: true, rules: [{ min: 2, message: '至少2个字' }]})
     name: string
     @prop({ tag: '密码',filter: true})
@@ -20,11 +20,12 @@ export class User extends ARBase {
     roles: Role[]
     @required('name', 'pwd')//验证参数和
     async login(code) {
-/*        let user=await User.sel('id,name').get`id>${1}`
+        ctx.req.req
+        console.log(await Menu.sel('id,name').get`id>${2}`)
         ctx.info(`User.add called with a=${this.name}, b=${this.pwd}`);
-        ctx.info('Request URL:', ctx.req?.url);*/
-        let [u] = await super.get().err('找不到')
-        const token = jwt.sign({uid: u.id}, secret, {expiresIn: '2h'});
+        ctx.info('Request URL:', ctx.req?.url);
+        //let [u] = await super.get().err('找不到')
+        const token = jwt.sign({uid: 1}, secret, {expiresIn: '2h'});
         return {token};
     }
     async add2({a, b}: { a: number; b: number }) {

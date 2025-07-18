@@ -1,8 +1,8 @@
-import {ARBase, prop} from "../core/ARBase.ts";
+import {ArBase, prop} from "../core/ArBase.ts";
 
 import type {Role} from "./Role.ts";
 
-export class Permission extends ARBase {
+export class Permission extends ArBase {
     @prop({ tag: '名称',filter: true})
     name: string
     @prop({ tag: '菜单',sel:[],filter: true})

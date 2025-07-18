@@ -53,7 +53,7 @@
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item @click="modifyPassword">修改密码</el-dropdown-item>
+                <el-dropdown-item @click="openModifyPassword">修改密码</el-dropdown-item>
                 <el-dropdown-item divided @click="logout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -69,14 +69,57 @@
 
   <!-- 登录页面 -->
   <router-view v-else />
+
+  <!-- 修改密码弹窗 -->
+  <el-dialog
+      v-model="showPasswordDialog"
+      title="修改密码"
+      width="400px"
+      :before-close="handleClose"
+  >
+    <el-form :model="passwordForm" :rules="passwordRules" ref="passwordFormRef" label-width="100px">
+      <el-form-item label="旧密码" prop="oldPassword">
+        <el-input v-model="passwordForm.oldPassword" type="password" placeholder="请输入旧密码" show-password />
+      </el-form-item>
+      <el-form-item label="新密码" prop="newPassword">
+        <el-input v-model="passwordForm.newPassword" type="password" placeholder="请输入新密码" show-password />
+      </el-form-item>
+      <el-form-item label="确认新密码" prop="confirmPassword">
+        <el-input v-model="passwordForm.confirmPassword" type="password" placeholder="请再次输入" show-password />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="showPasswordDialog = false">取消</el-button>
+      <el-button type="primary" :loading="passwordLoading" @click="submitPassword">提交</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script lang="ts" setup>
 import { ref, watch, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { HomeFilled, ArrowDown, User, UserFilled, Lock, Menu, Setting, Tools, Document } from "@element-plus/icons-vue";
+import {
+  HomeFilled,
+  ArrowDown,
+  User,
+  UserFilled,
+  Lock,
+  Menu,
+  Setting,
+  Tools,
+  Document,
+  Flag
+} from "@element-plus/icons-vue";
+import { ElMessage } from "element-plus";
 
-// 菜单配置
+const route = useRoute();
+const router = useRouter();
+const activeMenu = ref(route.path);
+const isLoginPage = computed(() => route.path === "/login");
+
+const username = ref("admin");
+const userAvatar = ref("https://api.dicebear.com/7.x/miniavs/svg?seed=admin");
+
 const menus = [
   {
     index: "1",
@@ -108,29 +151,28 @@ const menus = [
   },
   {
     index: "5",
-    title: "云对象",
+    title: "arpc对象",
     icon: Document,
     path: "/obj/gets"
   },
+  {
+    index: "6",
+    title: "可视化开发",
+    icon: Flag,
+    path: "/visual"
+  },
+  {
+    index: "6",
+    title: "数据库",
+    icon: Flag,
+    path: "/database/database"
+  }
 ];
 
-const route = useRoute();
-const router = useRouter();
-const activeMenu = ref(route.path);
-const isLoginPage = computed(() => route.path === "/login");
+watch(() => route.path, (newPath) => {
+  activeMenu.value = newPath;
+});
 
-const username = ref("admin");
-const userAvatar = ref("https://api.dicebear.com/7.x/miniavs/svg?seed=admin"); // 可替换成真实头像
-
-// 监听路由变化高亮菜单
-watch(
-    () => route.path,
-    (newPath) => {
-      activeMenu.value = newPath;
-    }
-);
-
-// 面包屑最后一级
 const currentBreadcrumb = computed(() => {
   for (const menu of menus) {
     if (!menu.children && menu.path === route.path) return menu.title;
@@ -151,8 +193,58 @@ function logout() {
   router.push("/login");
 }
 
-function modifyPassword() {
-  alert("打开修改密码弹窗（需实现）");
+// 修改密码逻辑
+const showPasswordDialog = ref(false);
+const passwordFormRef = ref();
+const passwordLoading = ref(false);
+const passwordForm = ref({
+  oldPassword: "",
+  newPassword: "",
+  confirmPassword: "",
+});
+const passwordRules = {
+  oldPassword: [{ required: true, message: "请输入旧密码", trigger: "blur" }],
+  newPassword: [{ required: true, message: "请输入新密码", trigger: "blur" }],
+  confirmPassword: [
+    { required: true, message: "请确认新密码", trigger: "blur" },
+    {
+      validator: (rule: any, value: string, callback: any) => {
+        if (value !== passwordForm.value.newPassword) {
+          callback(new Error("两次输入的密码不一致"));
+        } else {
+          callback();
+        }
+      },
+      trigger: "blur",
+    },
+  ],
+};
+
+function openModifyPassword() {
+  showPasswordDialog.value = true;
+}
+
+function handleClose() {
+  showPasswordDialog.value = false;
+  passwordFormRef.value?.resetFields();
+}
+
+function submitPassword() {
+  passwordFormRef.value?.validate(async (valid: boolean) => {
+    if (!valid) return;
+    passwordLoading.value = true;
+    try {
+      // 模拟请求，请替换为真实 API
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      ElMessage.success("密码修改成功，请重新登录");
+      showPasswordDialog.value = false;
+      logout();
+    } catch (e) {
+      ElMessage.error("密码修改失败");
+    } finally {
+      passwordLoading.value = false;
+    }
+  });
 }
 </script>
 
@@ -245,7 +337,6 @@ body,
   padding: 5px !important;
   overflow: auto;
   height: calc(100vh - 60px);
-
   scrollbar-width: none;
   -ms-overflow-style: none;
 }

@@ -1,9 +1,9 @@
 import { Permission } from './Permission'
-import {ARBase, prop} from "../core/ARBase.ts";
+import {ArBase, prop} from "../core/ArBase.ts";
 import  {User} from "./User.ts";
 import {Menu} from "./Menu.ts";
 //后端代码，无代码
-export class Role extends ARBase {
+export class Role extends ArBase {
     @prop({ tag: '名称',filter: true})
     name: string
     @prop({ tag: '菜单',sel:[],filter: true})

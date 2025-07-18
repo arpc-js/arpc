@@ -1,6 +1,6 @@
-import {ARBase,prop,menu} from "../core/ARBase.ts"
+import {ArBase,prop,menu} from "../core/ArBase.ts"
 @menu({"name":"","parent":""})
-export class Menu extends ARBase{
+export class Menu extends ArBase{
     @prop({"tag":"名称","filter":true,"hide":[]})
     name: string;
     @prop({"tag":"上级id","filter":true,"hide":[]})

@@ -1,8 +1,8 @@
-import {controllers} from '../core/arpc.ts';
+import {controllers} from '../core/Arpc.ts';
 import path from 'path';
 import fs from 'fs/promises';
-import {getsql, ARBase} from "../core/ARBase.ts";
-export class Obj extends ARBase{
+import {getsql, ArBase, dbType} from "../core/ArBase.ts";
+export class Obj extends ArBase{
     name:string
     menu:{}
     attr:[]
@@ -78,7 +78,11 @@ export class Obj extends ARBase{
             if (createdTables.has(tableName)) continue;
             createdTables.add(tableName);
 
-            const columns = [`id SERIAL PRIMARY KEY`];
+            const columns = [
+                dbType === 'mysql'
+                    ? 'id INT PRIMARY KEY AUTO_INCREMENT'
+                    : 'id SERIAL PRIMARY KEY'
+            ];
 
             for (const [field, type] of Object.entries(types)) {
                 if (type.endsWith('[]')) {
@@ -123,10 +127,11 @@ CREATE TABLE IF NOT EXISTS ${join} (
                     columns.push(`${field} ${pgType}`);
                 }
             }
+            let timestamp=dbType=='mysql'?'TIMESTAMP DEFAULT CURRENT_TIMESTAMP':'TIMESTAMPTZ DEFAULT NOW()'
             columns.push(
                 `is_deleted BOOLEAN DEFAULT FALSE`,
-                `created_at TIMESTAMPTZ DEFAULT NOW()`,
-                `updated_at TIMESTAMPTZ DEFAULT NOW()`)
+                `created_at ${timestamp}`,
+                `updated_at ${timestamp}`)
             const createTableSql = `
 CREATE TABLE IF NOT EXISTS "${tableName}" (
   ${columns.join(',\n  ')}
