@@ -250,7 +250,7 @@ export class ArBase {
         let total=await this.count()
         return {list,total}
     }
-    async count(condition: TemplateStringsArray | number | Record<string, any> = undefined, ...values: any[]) {
+    async count(condition: TemplateStringsArray | number | Record<string, any> = undefined, ...values: any[]):Promise<number> {
         let table = q(this.table);
         const { joins, args: joinArgs, paramCount } = getSqlParts(this);
         let { whereClause, whereArgs } = buildWhereClause(this, condition, values, paramCount + 1);
@@ -265,7 +265,7 @@ export class ArBase {
         let rows=await uniQuery(text, allArgs)
         return Number(rows[0].count);
     }
-    async get(condition: TemplateStringsArray | number | Record<string, any>=undefined, ...values: any[]) {
+    async get(condition: TemplateStringsArray | number | Record<string, any>=undefined, ...values: any[]):Promise<[]> {
         console.log(this.page)
         let table = q(this.table);
         const { selectCols, joins, args: joinArgs, paramCount, groupKeys, groupNames } = getSqlParts(this);
@@ -306,21 +306,17 @@ export class ArBase {
         return grouped;
     }
 
-    async sql(condition: TemplateStringsArray | number | Record<string, any>=undefined, ...values: any[]) {
-        let { whereClause, whereArgs } = buildWhereClause(this, condition, values, 1);
-        const { rows } = await getsql().query(whereClause, whereArgs);
-        return rows;
+    async sql(strings: TemplateStringsArray, ...values: any[]) {
+        let { statement, args } = buildSqlClause(strings, values);
+        return await uniQuery(statement, args);
     }
     async query(strings: TemplateStringsArray, ...values: any[]) {
         let { statement, args } = buildSqlClause(strings, values);
-        console.log(statement)
-        console.log(args)
-        const { rows } = await getsql().query(statement, args);
-        return rows;
+        return await uniQuery(statement, args);
     }
     //嵌套级联操作条件只能是id，因为id关联的关系
     //默认单条id操作,有条件代表多条操作
-    async update(condition: TemplateStringsArray | number | Record<string, any>=null,...values: any[]) {
+    async update(condition: TemplateStringsArray | number | Record<string, any>=null,...values: any[]):Promise<number> {
         const table = q(this.table)
         const { main, oneToOne, oneToMany } = splitFields(this);
 
@@ -329,32 +325,37 @@ export class ArBase {
         const setValues = setKeys.map(k => main[k]);
 
         const { whereClause, whereArgs } = buildWhereClause(this, condition, values, setValues.length + 1);
-        const text = `UPDATE ${table} SET ${setClause} ${whereClause} RETURNING *`
+        const text = `UPDATE ${table} SET ${setClause} ${whereClause}`
 
-        const {rows} = await getsql().query(text, [...setValues, ...whereArgs])
-        return rows
+        return await uniQuery(text, [...setValues, ...whereArgs],'update')
     }
     //所有对象，包含子对象通过id增删改，无id增，有修改，有is_deleted软删除
-    async del(condition: TemplateStringsArray | number | Record<string, any>=null, ...values: any[]) {
+    async del(condition: TemplateStringsArray | number | Record<string, any>=null, ...values: any[]):Promise<number> {
         this.is_deleted=true
         return await this.update(condition,...values);
+    }
+    async fdel(condition: TemplateStringsArray | number | Record<string, any> = null, ...values: any[]):Promise<number> {
+        const table = q(this.table);
+        const { whereClause, whereArgs } = buildWhereClause(this, condition, values, 1);
+        const text = `DELETE FROM ${table} ${whereClause}`;
+        return await uniQuery(text, whereArgs, 'delete');
     }
     //递归ar增删改操作
     //角色权限嵌套多表，加声明式事务
     @tx
-    async sync() {
+    async sync():Promise<number> {
         return await this._sync();
     }
     //防止声明式事务无限递归
-    async _sync() {
+    async _sync():Promise<number> {
         console.log(this.types)
         const table = this.table
         const { main, oneToOne, oneToMany } = splitFields(this);
         // 插入主表
-        const [row]=this.id?await this.update():await add(table,main)
+        const id=this.id?await this.update():await add(table,main)
         // 插入1对1，如果有id修改对象维护关系，否则插入对象维护关系
         for (const v of Object.values(oneToOne)) {
-            v[`${table}_id`]=row.id
+            v[`${table}_id`]=id
             //@ts-ignore id判断增改，is_delete的改是删除
             await v._sync()
         }
@@ -363,7 +364,7 @@ export class ArBase {
             //@ts-ignore
             for (const item of arr) {
                 if (!this.isManyToMany(item)){//维护1对多关系
-                    item[`${table}_id`]=row.id
+                    item[`${table}_id`]=id
                 }
                 //@ts-ignore id判断增改，is_delete的改是删除
                 let [item_row]=await item._sync()
@@ -371,27 +372,27 @@ export class ArBase {
                 if (this.isManyToMany(item)&&!item_row.is_deleted){
                     let sub_table = item.constructor.name.toLowerCase();
                     const joinTableName = [table, sub_table].sort().join('_');
-                    const rdata = {[`${table}_id`]: row.id, [`${sub_table}_id`]: item_row.id}
+                    const rdata = {[`${table}_id`]: id, [`${sub_table}_id`]: item_row.id}
                     await add(joinTableName,rdata)
                 }
             }
         }
-        return [row];
+        return id;
     }
     @tx
-    async cover() {
+    async cover():Promise<number> {
         return await this._cover();
     }
     //防止声明式事务无限递归
-    async _cover() {
+    async _cover():Promise<number> {
         console.log(this.types)
         const table = this.table
         const { main, oneToOne, oneToMany } = splitFields(this);
         // 插入主表
-        const [row]=this.id?await this.update():await add(table,main)
+        const id=this.id?await this.update():await add(table,main)
         // 插入1对1，如果有id修改对象维护关系，否则插入对象维护关系
         for (const v of Object.values(oneToOne)) {
-            v[`${table}_id`]=row.id
+            v[`${table}_id`]=id
             //@ts-ignore id判断增改，is_delete的改是删除
             await v._sync()
             //解引用
@@ -401,7 +402,7 @@ export class ArBase {
             //@ts-ignore
             for (const item of arr) {
                 if (!this.isManyToMany(item)){//维护1对多关系
-                    item[`${table}_id`]=row.id
+                    item[`${table}_id`]=id
                     //解引用
                 }
                 //@ts-ignore id判断增改，is_delete的改是删除
@@ -410,7 +411,7 @@ export class ArBase {
                 if (this.isManyToMany(item)&&!item_row.is_deleted){
                     let sub_table = item.constructor.name.toLowerCase();
                     const joinTableName = [table, sub_table].sort().join('_');
-                    const rdata = {[`${table}_id`]: row.id, [`${sub_table}_id`]: item_row.id}
+                    const rdata = {[`${table}_id`]: id, [`${sub_table}_id`]: item_row.id}
                     await add(joinTableName,rdata)
                     //解引用
                     let sql=getsql()
@@ -420,18 +421,18 @@ export class ArBase {
                 }
             }
         }
-        return [row];
+        return id;
     }
     //数据库层，可以任意字段冲突
-    async add() {
+    async add():Promise<number> {
         console.log(this.types)
         const table = this.table
         const { main, oneToOne, oneToMany } = splitFields(this);
         // 插入主表
-        const [row]=await add(table,main)
-        return [row];
+        const id=await add(table,main)
+        return id;
     }
-    async adds(arr) {
+    async adds(arr):Promise<[]|number> {
         const table = q(this.table);
         if (!arr.length) return [];
         const keys = Object.keys(arr[0]).filter(k => arr[0][k] != null);
@@ -441,8 +442,8 @@ export class ArBase {
         ).join(',');
         const values = arr.flatMap(obj => keys.map(k => obj[k]));
         const text = `INSERT INTO ${q(table)} (${cols}) VALUES ${placeholders} RETURNING *`;
-        const { rows } = await getsql().query(text, values);
-        return rows;
+        const  ids  = await uniQuery(text, values,'adds');
+        return ids;
     }
 }
 export function buildSqlClause(strings: TemplateStringsArray, values: any[]) {
@@ -452,7 +453,7 @@ export function buildSqlClause(strings: TemplateStringsArray, values: any[]) {
         statement += strings[i];
         if (i < values.length) {
             args.push(values[i]);
-            statement += `$${args.length}`; // PostgreSQL uses $1, $2, ...
+            statement += `${placeholder(args.length)}`; // PostgreSQL uses $1, $2, ...
         }
     }
     return { statement, args };
@@ -523,9 +524,9 @@ async function add(table, obj) {
     const cols = keys.map(k => `${q(k)}`).join(', ')
     const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ')
     const values = Object.values(obj)
-    const text = `INSERT INTO ${q(table)} (${cols}) VALUES (${placeholders}) ON CONFLICT DO NOTHING RETURNING *`
+    const text = `INSERT INTO ${q(table)} (${cols}) VALUES (${placeholders})`
     console.log(text,values)
-    const {rows} = await getsql().query(text, values)
+    const rows = await uniQuery(text, values,'add')
     return rows
 }
 /**
@@ -736,15 +737,47 @@ function q(str: string) {
     qcache.set(str, res);
     return res;
 }
-async function uniQuery(text: string, params: any[] = []) {
+//增返回id，删改返回受影响行数，查询返回list
+async function uniQuery(text: string, params: any[] = [], op = '') {
+    const sql = getsql();
+
     if (dbType === 'mysql') {
-        const [rows] = await getsql().query(text, params);
-        return rows;
+        const [result] = await sql.query(text, params);
+
+        if (Array.isArray(result)) {
+            // SELECT 查询返回数组
+            return result;
+        } else {
+            // INSERT 返回插入ID
+            if (op === 'add') {
+                return result.insertId;
+            }
+            // UPDATE/DELETE 返回受影响行数
+            if (op === 'update' || op === 'delete') {
+                return result.affectedRows;
+            }
+            // 其他情况返回原结果
+            return result;
+        }
     } else {
-        const { rows } = await getsql().query(text, params);
+        // PG 增加自动 RETURNING id 支持
+        if ((op === 'add' || op === 'adds') && !/returning\s+/i.test(text)) {
+            text = text.trim().replace(/;$/, '') + ' RETURNING id';
+        }
+
+        const { rows, rowCount } = await sql.query(text, params);
+
+        if (op === 'add') {
+            return rows?.[0]?.id;
+        } else if (op === 'adds') {
+            return rows.map(r => r.id);
+        } else if (op === 'update' || op === 'delete') {
+            return rowCount;
+        }
         return rows;
     }
 }
+
 
 export function prop(meta: Record<string, any> = {}) {
     return function (target: any, key: string) {
