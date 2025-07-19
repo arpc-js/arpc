@@ -492,8 +492,13 @@ export function Arpc(options: { rpcDir?: string,dsn?:string } = {}) {
                                 response.status(400).json({ error: e.message || 'Bad Request' });
                                 return;
                             }
-                            const instance = await deepAssign(new Ctrl(), data);
-                            const args = data.args?.[0] != undefined? data.args : [data];
+                            //data只赋值对象有的，没有的不赋值
+                            //args没传，就用data，支持对象和动态参数数组
+                            let {args,...rest}=data
+                            const instance = await deepAssign(new Ctrl(), rest);
+                            if (data.args?.[0] == undefined){
+                                args= Array.isArray(rest)?rest:[rest]
+                            }
                             const result = await instance[methodName](...args);
                             if (result === undefined) {
                                 return;

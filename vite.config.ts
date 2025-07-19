@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import uni from '@dcloudio/vite-plugin-uni'
 import vue from '@vitejs/plugin-vue'
-import {dsltransform, rpc_proxy} from "./src/core/vite_plugin";
+import {dsltransform, arpc_cli} from "./src/core/vite_plugin";
 import { createHtmlPlugin } from 'vite-plugin-html'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
     //@ts-ignore
     plugins: [
       isVue ? vue() : uni(),
-      rpc_proxy(mode),
+      arpc_cli(mode),
       //dsltransform(),
       AutoImport({
         resolvers: [ElementPlusResolver()],

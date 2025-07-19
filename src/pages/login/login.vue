@@ -6,52 +6,87 @@
       <text class="welcome-text">欢迎登录</text>
     </view>
 
+    <!-- 登录切换 -->
+    <view class="login-switch">
+      <text
+          :class="['switch-item', { active: loginType === 'username' }]"
+          @click="loginType = 'username'"
+      >用户名密码登录</text>
+      <text
+          :class="['switch-item', { active: loginType === 'phone' }]"
+          @click="loginType = 'phone'"
+      >手机号验证码登录</text>
+    </view>
+
     <!-- 登录表单 -->
     <view class="login-form">
-      <!-- 手机号输入 -->
-<!--      <view class="form-item">
-        <input
-            class="input"
-            type="number"
-            v-model="phone"
-            placeholder="请输入手机号"
-            maxlength="11"
-            @input="validatePhone"
-        />
-        <view class="clear-btn" @click="phone = ''" v-show="phone">
-          <uni-icons type="clear" size="20" color="#999"></uni-icons>
+
+      <!-- 用户名密码登录 -->
+      <view v-if="loginType === 'username'">
+        <view class="form-item">
+          <input
+              class="input"
+              type="text"
+              v-model="username"
+              placeholder="请输入用户名"
+              maxlength="30"
+          />
+          <view class="clear-btn" @click="username = ''" v-show="username">
+            <uni-icons type="clear" size="20" color="#999"></uni-icons>
+          </view>
+        </view>
+
+        <view class="form-item">
+          <input
+              class="input"
+              type="password"
+              v-model="password"
+              placeholder="请输入密码"
+              maxlength="30"
+          />
+          <view class="clear-btn" @click="password = ''" v-show="password">
+            <uni-icons type="clear" size="20" color="#999"></uni-icons>
+          </view>
         </view>
       </view>
 
-      &lt;!&ndash; 验证码输入 &ndash;&gt;
-      <view class="form-item">
-        <input
-            class="input"
-            type="number"
-            v-model="code"
-            placeholder="请输入验证码"
-            maxlength="6"
-        />
-        <view
-            class="code-btn"
-            :class="{ disabled: !canGetCode }"
-            @click="getSMSCode"
-        >
-          {{ codeBtnText }}
+      <!-- 手机号验证码登录 -->
+      <view v-else>
+        <view class="form-item">
+          <input
+              class="input"
+              type="number"
+              v-model="phone"
+              placeholder="请输入手机号"
+              maxlength="11"
+              @input="validatePhone"
+          />
+          <view class="clear-btn" @click="phone = ''" v-show="phone">
+            <uni-icons type="clear" size="20" color="#999"></uni-icons>
+          </view>
         </view>
-      </view>-->
 
-      <!-- 登录按钮 -->
+        <view class="form-item">
+          <input
+              class="input"
+              type="number"
+              v-model="code"
+              placeholder="请输入验证码"
+              maxlength="6"
+          />
+          <view
+              class="code-btn"
+              :class="{ disabled: !canGetCode || codeBtnText !== '获取验证码' }"
+              @click="getSMSCode"
+          >
+            {{ codeBtnText }}
+          </view>
+        </view>
+      </view>
+
+      <!-- 登录按钮 :disabled="!canLogin" -->
       <button
           class="login-btn"
-          :disabled="canLogin"
-          @click="to('/pages/jishi/register')"
-      >
-        技师入住
-      </button>
-      <button
-          class="login-btn"
-          :disabled="canLogin"
           @click="handleLogin"
       >
         登录
@@ -66,7 +101,11 @@
               open-type="getPhoneNumber"
               @getphonenumber="wxLogin"
           >
-            <image class="wx-icon" src="/static/wx-login.png"></image>
+            <image
+                class="wx-icon"
+                src="/static/wx.jpg"
+                style="width:80rpx; height:80rpx; border-radius:40rpx; object-fit:cover;"
+            ></image>
           </button>
         </view>
       </view>
@@ -88,100 +127,125 @@
 </template>
 
 <script>
-import {User} from "../../arpc/User";
+import { User } from "../../arpc/User";
 export default {
   data() {
     return {
-      u:new User(),
-      phone: '',         // 手机号
-      code: '',          // 验证码
-      isAgree: false,    // 是否同意协议
-      codeBtnText: '获取验证码', // 验证码按钮文字
-      canGetCode: false, // 是否可以获取验证码
-      countDown: 60      // 倒计时
-    }
+      loginType: 'username',  // 登录方式：username | phone
+
+      // 用户名密码登录字段
+      username: '',
+      password: '',
+
+      // 手机号验证码登录字段
+      phone: '',
+      code: '',
+
+      isAgree: false,
+      codeBtnText: '获取验证码',
+      canGetCode: false,
+      countDown: 60,
+      timer: null,
+    };
   },
   computed: {
-    // 是否可点击登录
     canLogin() {
-      return this.phone.length === 11 &&
-          this.code.length === 6 &&
-          this.isAgree
+      if (!this.isAgree) return false;
+      if (this.loginType === 'username') {
+        return this.username.trim().length > 0 && this.password.trim().length > 0;
+      } else {
+        return this.phone.length === 11 && this.code.length === 6;
+      }
     }
   },
-  onLoad() {
-    //this.handleLogin()
-  },
   methods: {
-    // 验证手机号格式
     validatePhone() {
-      const reg = /^1[3-9]\d{9}$/
-      this.canGetCode = reg.test(this.phone)
+      const reg = /^1[3-9]\d{9}$/;
+      this.canGetCode = reg.test(this.phone);
     },
 
-    // 获取短信验证码
     async getSMSCode() {
-      if (!this.canGetCode || this.codeBtnText !== '获取验证码') return
-
+      if (!this.canGetCode || this.codeBtnText !== '获取验证码') return;
       try {
-        // 调用短信接口
         const res = await uni.request({
           url: '/api/sms/send',
           method: 'POST',
           data: { phone: this.phone }
-        })
-
+        });
         if (res.data.code === 200) {
-          uni.showToast({ title: '验证码已发送' })
-          this.startCountDown()
+          uni.showToast({ title: '验证码已发送' });
+          this.startCountDown();
         }
       } catch (error) {
-        uni.showToast({ title: '发送失败', icon: 'none' })
+        uni.showToast({ title: '发送失败', icon: 'none' });
       }
     },
 
-    // 开始倒计时
     startCountDown() {
-      this.codeBtnText = `${this.countDown}s后重新获取`
-      const timer = setInterval(() => {
+      this.codeBtnText = `${this.countDown}s后重新获取`;
+      this.timer = setInterval(() => {
         if (this.countDown <= 0) {
-          clearInterval(timer)
-          this.codeBtnText = '获取验证码'
-          this.countDown = 60
-          return
+          clearInterval(this.timer);
+          this.codeBtnText = '获取验证码';
+          this.countDown = 60;
+          return;
         }
-        this.countDown--
-        this.codeBtnText = `${this.countDown}s后重新获取`
-      }, 1000)
+        this.countDown--;
+        this.codeBtnText = `${this.countDown}s后重新获取`;
+      }, 1000);
     },
-    async jishi() {
-      let {uid,token}=await this.u.add()
-      console.log('jwt token:',token)
-      uni.setStorageSync('token',token)
-      uni.setStorageSync('uid',uid)
-    },
+
     async handleLogin() {
+      uni.reLaunch({ url: '/pages/me/me' });
+      if (!this.isAgree) {
+        uni.showToast({ title: '请先同意协议', icon: 'none' });
+        return;
+      }
       try {
-        let {code}=await uni.login({provider: 'weixin',"onlyAuthorize": true,}).catch(e=>{
-          console.log('login',e)
-        })
-        let {uid,token}=await this.u.login(code)
-        console.log('jwt token:',token)
-        uni.setStorageSync('token',token)
-        uni.setStorageSync('uid',uid)
-        this.initWs()
-        uni.reLaunch({  url: '/pages/index/index' })
+        if (this.loginType === 'username') {
+          // 用户名密码登录逻辑
+          const res = await uni.request({
+            url: '/api/login/username',
+            method: 'POST',
+            data: {
+              username: this.username,
+              password: this.password,
+            }
+          });
+          if (res.data.code === 200) {
+            uni.setStorageSync('token', res.data.token);
+            uni.setStorageSync('uid', res.data.uid);
+            uni.reLaunch({ url: '/pages/me/me' });
+          } else {
+            uni.showToast({ title: res.data.message || '登录失败', icon: 'none' });
+          }
+        } else {
+          // 手机号验证码登录逻辑
+          let { code } = await uni.login({ provider: 'weixin' });
+          let u = new User();
+          let { uid, token } = await u.login(code);
+          console.log('jwt token:', token);
+          uni.setStorageSync('token', token);
+          uni.setStorageSync('uid', uid);
+          uni.connectSocket({
+            url: `ws://localhost:3000/ws`,
+            header: { Authorization: token }
+          });
+          uni.onSocketMessage(msg => {
+            console.log(msg);
+            let data = JSON.parse(msg);
+          });
+          uni.reLaunch({ url: '/pages/me/me' });
+        }
       } catch (error) {
-        uni.showToast({ title: error.message, icon: 'none' })
+        uni.showToast({ title: error.message || '登录失败', icon: 'none' });
       }
     },
 
-    // 微信登录
     wxLogin(e) {
       if (!this.isAgree) {
-        return uni.showToast({ title: '请先同意协议', icon: 'none' })
+        return uni.showToast({ title: '请先同意协议', icon: 'none' });
       }
-
       uni.login({
         provider: 'weixin',
         success: async (res) => {
@@ -194,33 +258,33 @@ export default {
                 encryptedData: e.detail.encryptedData,
                 iv: e.detail.iv
               }
-            })
-
+            });
             if (loginRes.data.code === 200) {
-              uni.setStorageSync('token', loginRes.data.token)
-              this.$to.redirect('/pages/home/index')
+              uni.setStorageSync('token', loginRes.data.token);
+              this.$to.redirect('/pages/home/index');
             }
           } catch (error) {
-            uni.showToast({ title: '微信登录失败', icon: 'none' })
+            uni.showToast({ title: '微信登录失败', icon: 'none' });
           }
         }
-      })
+      });
     },
 
-    // 协议勾选
     toggleAgree(e) {
-      this.isAgree = e.detail.value.length > 0
+      this.isAgree = e.detail.value.length > 0;
     },
 
-    // 查看协议
     navigateToAgreement() {
-      this.$to.to('/pages/agreement/user')
+      this.$to.to('/pages/agreement/user');
     },
     navigateToPrivacy() {
-      this.$to.to('/pages/agreement/privacy')
+      this.$to.to('/pages/agreement/privacy');
     }
+  },
+  beforeUnmount() {
+    if (this.timer) clearInterval(this.timer);
   }
-}
+};
 </script>
 
 <style scoped>
@@ -248,6 +312,27 @@ export default {
   font-weight: bold;
 }
 
+.login-switch {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 40rpx;
+}
+
+.switch-item {
+  margin: 0 30rpx;
+  font-size: 30rpx;
+  color: #999;
+  cursor: pointer;
+  padding-bottom: 10rpx;
+  border-bottom: 2rpx solid transparent;
+  user-select: none;
+}
+
+.switch-item.active {
+  color: #07c160;
+  border-bottom-color: #07c160;
+}
+
 .form-item {
   position: relative;
   margin-bottom: 40rpx;
@@ -259,6 +344,8 @@ export default {
   height: 80rpx;
   padding-right: 160rpx;
   font-size: 32rpx;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .clear-btn {
@@ -278,10 +365,12 @@ export default {
   font-size: 28rpx;
   padding: 10rpx 20rpx;
   border-left: 1rpx solid #eee;
+  user-select: none;
 }
 
 .code-btn.disabled {
   color: #999;
+  pointer-events: none;
 }
 
 .login-btn {
@@ -318,6 +407,7 @@ export default {
   padding: 0;
   background: transparent;
   line-height: 1;
+  margin: 0 20rpx;
 }
 
 .wx-btn::after {
@@ -327,6 +417,8 @@ export default {
 .wx-icon {
   width: 80rpx;
   height: 80rpx;
+  border-radius: 40rpx;
+  object-fit: cover;
 }
 
 .agreement {
@@ -344,5 +436,7 @@ export default {
 
 .link {
   color: #07c160;
+  cursor: pointer;
+  user-select: none;
 }
 </style>

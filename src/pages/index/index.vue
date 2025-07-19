@@ -37,6 +37,7 @@
 <script>
 import {User} from "../../arpc/User";
 import {Spu} from "../../arpc/Spu";
+import {Menu} from "../../arpc/Menu";
 export default {
   components: {},
   data() {
@@ -90,6 +91,9 @@ export default {
     }
   },
   async onLoad(options) {
+    let obj=new Menu()
+    let res1=await obj.getPage()
+    console.log('res:',res1)
     await this.initWs()
     console.log('chatStore:',this.chatStore)
     let spu=new Spu()

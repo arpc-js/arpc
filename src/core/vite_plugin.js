@@ -63,7 +63,7 @@ function parseAst(classString) {
 
 
 
-function rpc_proxy(mode) {
+function arpc_cli(mode) {
     return {
         name: 'proxy',
         enforce: 'pre',
@@ -71,15 +71,14 @@ function rpc_proxy(mode) {
             if (id.includes('/src/arpc') && id.includes('.ts')) {
                 let {name, attr, fns} = parseAst(code)
                 let aa = null
-                if (mode == 'adm') {
-                    aa = fns.map(x => `${x.static} async ${x.name}(...args){
+                aa = fns.map(x => `${x.static} async ${x.name}(...args){
                     if('${x.name}'=='reset'){
                         deepClear(this);//深度置空
                         return
                     }
                     delete this.model //第一个类不需要model能确定
                     let {list,total,...rest}=this
-                    const data  = await post(this,'/${name.toLowerCase()}/${x.name}',{...rest,sel:this.sel,args:args});
+                    const data  = await post('${mode}',this,'/${name.toLowerCase()}/${x.name}',{...rest,sel:this.sel,args:args});
                     deepClear(this);//深度置空
                     if (data?.list) {
                         this.list = data.list;
@@ -89,12 +88,6 @@ function rpc_proxy(mode) {
                     //可以对象克隆，或者转为对应对象
                     return Array.isArray(data) ? reactive(data.map(item => reactive(item))) : reactive(data);
               }`)
-                } else {
-                    aa = fns.map(x => `async ${x}(...args){
-                    const response = await post(${name.toLowerCase()}/${x})
-                return reactive(response);
-              }`)
-                }
                 //User源代码被替换了
                 code = `
                 import { post } from '../core/request.ts';
@@ -288,4 +281,4 @@ function dsltransform(mode) {
         },
     };
 }
-export {switchIndex, rpc_proxy,dsltransform}
+export {switchIndex, arpc_cli,dsltransform}

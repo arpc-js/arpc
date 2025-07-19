@@ -20,11 +20,10 @@ export class User extends ArBase {
     roles: Role[]
     @required('name', 'pwd')//验证参数和
     async login(code) {
-        ctx.req.req
         console.log(await Menu.sel('id,name').get`id>${2}`)
         ctx.info(`User.add called with a=${this.name}, b=${this.pwd}`);
         ctx.info('Request URL:', ctx.req?.url);
-        //let [u] = await super.get().err('找不到')
+        let [u] = await super.get().err('找不到')
         const token = jwt.sign({uid: 1}, secret, {expiresIn: '2h'});
         return {token};
     }
