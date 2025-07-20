@@ -3,107 +3,93 @@
     <!-- 用户信息头部 -->
     <view class="user-info" @click="to('/pages/me/setting')">
       <view class="info-left">
-        <image class="avatar" :src="user?.avatar"></image>
+        <image class="avatar" src="https://img.yzcdn.cn/vant/cat.jpeg" />
         <view class="user-detail">
-          <text class="username">{{ user?.name }}</text>
-          <text class="wechat-id">城市：{{ user?.city }}</text>
-          <text class="wechat-id">余额：{{ user?.balance }}</text>
+          <text class="username">{{ name }}</text>
+<!--          <text class="wechat-id">城市：{{ user?.city }}</text>
+          <text class="wechat-id">余额：{{ user?.balance }}</text>-->
         </view>
       </view>
       <view class="info-right">
-        <uni-icons type="arrowright" size="20" color="#666"></uni-icons>
+        <uni-icons type="arrowright" size="20" color="#666" />
       </view>
     </view>
+
     <!-- 功能列表 -->
     <uni-list class="menu-list">
-      <navigator url='/pages/order/order'>
-        <uni-list-item
-            title="订单"
-            showArrow
-            thumb="/static/icons/pay.png"
-            thumb-size="20"
-        />
+      <navigator url="/pages/order/order">
+        <uni-list-item title="订单" showArrow thumb="https://img.yzcdn.cn/vant/cat.jpeg" thumb-size="20" />
       </navigator>
-      <navigator url='/pages/recharge/recharge'>
-        <uni-list-item
-            title="充值"
-            showArrow
-            thumb="/static/icons/pay.png"
-            thumb-size="20"
-        />
+      <navigator url="/pages/recharge/recharge">
+        <uni-list-item title="充值" showArrow thumb="https://img.yzcdn.cn/vant/cat.jpeg" thumb-size="20" />
       </navigator>
-      <navigator url='/pages/jishi/register'>
-        <uni-list-item
-            title="师傅入驻"
-            showArrow
-            thumb="/static/icons/pay.png"
-            thumb-size="20"
-        />
+      <navigator url="/pages/jishi/register">
+        <uni-list-item title="师傅入驻" showArrow thumb="https://img.yzcdn.cn/vant/cat.jpeg" thumb-size="20" />
       </navigator>
     </uni-list>
-    <navigator url='/pages/me/setting'>
-      <uni-list-item
-          title="设置"
-          showArrow
-          thumb="/static/icons/settings.png"
-          thumb-size="20"
-      />
+
+    <navigator url="/pages/me/setting">
+      <uni-list-item title="设置" showArrow thumb="https://img.yzcdn.cn/vant/cat.jpeg" thumb-size="20" />
     </navigator>
 
+    <!-- 清缓存 -->
+<!--    <view class="logout" @click="clearStorage">
+      <text class="logout-text">清缓存</text>
+    </view>-->
 
     <!-- 退出登录 -->
-    <view class="logout" @click="clearStorage">
-      <text class="logout-text">清缓存</text>
+    <view class="logout" @click="handleLogout">
+      <text class="logout-text">退出登录</text>
     </view>
-<!--    <view class="logout" @click="handleLogout">
-      <text class="logout-text">退出</text>
-    </view>-->
   </view>
 </template>
 
-<script>
-import {User} from "../../arpc/User";
+<script setup>
+import { ref, onMounted } from 'vue'
+import { User } from '@/arpc/User'
 
-export default {
-  data() {
-    return {
-      user: new User(),
-      userInfo: {
-        avatar: 'https://wx3.sinaimg.cn/mw690/006i0nC8ly1hquk6owrwoj31o01o0qs9.jpg',
-        nickname: '微信用户',
-        wechatId: 'id_743616453',
-      }
-    }
-  },
-  async onLoad(options) {
-    console.log(await this.user.gets(`id>${1} and name='${'李白'}'`))
-    this.user = await this.user.getById(uni.getStorageSync('uid'))
-  },
-  methods: {
-    navigateToUserProfile() {
-      uni.navigateTo({
-        url: '/pages/user/profile'
-      })
-    },
-    clearStorage() {
-      uni.clearStorage()
-    },
-    handleLogout() {
-      uni.showModal({
-        title: '提示',
-        content: '确定要退出登录吗？',
-        success: (res) => {
-          if (res.confirm) {
-            uni.clearStorage()
-            uni.setStorageSync('uid', '')
-            uni.setStorageSync('token', '')
-            uni.reLaunch({url: '/pages/login/login'})
-          }
-        }
-      })
-    }
+const user = new User()
+const uid = uni.getStorageSync('uid')
+const name = uni.getStorageSync('name')
+onMounted(() => {
+  //fetchUser()
+})
+const fetchUser = async () => {
+  try {
+    const uid = uni.getStorageSync('uid')
+    const name = uni.getStorageSync('name')
+    if (!uid) return
+    const data = await User.get(uid)
+    user.value = data
+  } catch (e) {
+    console.error('获取用户信息失败', e)
   }
 }
+
+const to = (url) => {
+  uni.navigateTo({ url })
+}
+
+const clearStorage = () => {
+  uni.clearStorage()
+  uni.showToast({ title: '缓存已清除', icon: 'none' })
+}
+
+const handleLogout = () => {
+  uni.showModal({
+    title: '提示',
+    content: '确定要退出登录吗？',
+    success: (res) => {
+      if (res.confirm) {
+        uni.clearStorage()
+        uni.setStorageSync('uid', '')
+        uni.setStorageSync('token', '')
+        uni.reLaunch({ url: '/pages/login/login' })
+      }
+    }
+  })
+}
+
 </script>
 
 <style scoped>

@@ -3,28 +3,26 @@
     <!-- 自定义消息列表 -->
     <view class="message-list">
       <navigator
-          v-for="(item, uid) in chatStore.unreadMap"
+          v-for="item in messages"
           :key="item.uid"
-          :url="`/pages/chat/chat?id=${uid}`"
+          :url="`/pages/chat/chat?id=${item.uid}`"
           class="message-item"
           hover-class="message-item-hover"
-          @longpress="handleLongPress(uid)"
+          @longpress="handleLongPress(item.uid)"
       >
         <!-- 头像 -->
-        <image class="avatar" :src="item.icon || defaultAvatar"></image>
+        <image class="avatar" :src="item.icon || defaultAvatar" />
 
-        <!-- 消息主体 -->
+        <!-- 内容 -->
         <view class="content">
-          <!-- 标题行 -->
           <view class="title-line">
             <text class="name">{{ item.name }}</text>
             <text class="time">{{ formatTime(item.time) }}</text>
           </view>
 
-          <!-- 消息预览 -->
           <view class="preview-line">
-            <text v-if="typeof item.msg=='string'" class="message">{{ item.msg }}</text>
-            <uni-icons v-else   type="location" size="30"></uni-icons>
+            <text v-if="typeof item.msg === 'string'" class="message">{{ item.msg }}</text>
+            <uni-icons v-else type="location" size="30" />
             <view v-if="item.count > 0" class="badge">
               {{ item.count > 99 ? '99+' : item.count }}
             </view>
@@ -36,55 +34,98 @@
 </template>
 
 <script setup lang="ts">
-import {computed, getCurrentInstance, watchEffect} from 'vue';
-import {onShow} from "@dcloudio/uni-app";
-
-const instance = getCurrentInstance();
-const chatStore = instance?.appContext.config.globalProperties.chatStore;
+import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 
 // 默认头像
 const defaultAvatar = 'https://qiniu-web-assets.dcloud.net.cn/unidoc/zh/unicloudlogo.png'
 
-// 时间格式化方法
+// 模拟消息数据
+const messages = ref([
+  {
+    uid: 'u1001',
+    name: '王大锤',
+    icon: 'https://img.yzcdn.cn/vant/cat.jpeg',
+    msg: '商家你好，请问今天上班吗？',
+    time: Date.now() - 60 * 1000 * 5,
+    count: 2,
+  },
+  {
+    uid: 'u1002',
+    name: '张三丰',
+    icon: 'https://img.yzcdn.cn/vant/cat.jpeg',
+    msg: '欢迎咨询我们的服务项目。',
+    time: Date.now() - 60 * 1000 * 30,
+    count: 0,
+  },
+  {
+    uid: 'u1003',
+    name: '李四',
+    icon: 'https://img.yzcdn.cn/vant/cat.jpeg',
+    msg: '欢迎咨询我们的服务项目。',
+    time: Date.now() - 60 * 60 * 1000,
+    count: 5,
+  },
+  {
+    uid: 'u1002',
+    name: '张三丰',
+    icon: 'https://img.yzcdn.cn/vant/cat.jpeg',
+    msg: '欢迎咨询我们的服务项目。',
+    time: Date.now() - 60 * 1000 * 30,
+    count: 0,
+  },
+  {
+    uid: 'u1003',
+    name: '李四',
+    icon: 'https://img.yzcdn.cn/vant/cat.jpeg',
+    msg: '欢迎咨询我们的服务项目。',
+    time: Date.now() - 60 * 60 * 1000,
+    count: 5,
+  },
+])
+
+// 时间格式化
 const formatTime = (timestamp: number) => {
-  if (!timestamp) return '';
-  const date = new Date(timestamp);
-  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-};
+  if (!timestamp) return ''
+  const date = new Date(timestamp)
+  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes()
+      .toString()
+      .padStart(2, '0')}`
+}
+
+// 长按事件处理
 const handleLongPress = (uid: string) => {
   uni.showActionSheet({
-    itemList: ['删除', '隐藏'],
+    itemList: ['删除', '标记已读'],
     success: (res) => {
       if (res.tapIndex === 0) {
-        // 删除聊天
-        chatStore.del(uid);
+        // 删除消息
+        messages.value = messages.value.filter((item) => item.uid !== uid)
       } else if (res.tapIndex === 1) {
-        // 隐藏聊天
-        chatStore.hide(uid);
+        // 标记为已读
+        const msg = messages.value.find((item) => item.uid === uid)
+        if (msg) msg.count = 0
       }
-    }
-  });
-};
-// 未读消息总数
-const totalUnread = computed(() => {
-  return Object.values(chatStore.unreadMap).reduce(
-      (acc: number, item: any) => acc + (item?.count || 0),
-      0
-  );
-});
-onShow(() => {
-  const count = instance?.appContext.config.globalProperties.chatStore['totalUnread']
-  console.log('count',count)
-  uni.setTabBarBadge({
-    index: 1,
-    text: count.toString()
+    },
   })
+}
+
+onShow(() => {
+  const unreadTotal = messages.value.reduce((sum, m) => sum + (m.count || 0), 0)
+  if (unreadTotal > 0) {
+    uni.setTabBarBadge({
+      index: 1,
+      text: unreadTotal > 99 ? '99+' : String(unreadTotal),
+    })
+  } else {
+    uni.removeTabBarBadge({ index: 1 })
+  }
 })
 </script>
 
-<style lang="scss">
+<style lang="scss" scoped>
 .container {
-  background-color: #f8f8f8;
+  background-color: #f5f5f5;
   min-height: 100vh;
 }
 
@@ -95,78 +136,71 @@ onShow(() => {
 .message-item {
   display: flex;
   align-items: center;
-  padding: 20rpx;
+  padding: 24rpx 20rpx;
   background-color: #fff;
+  border-radius: 16rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+}
+
+.avatar {
+  width: 100rpx;
+  height: 100rpx;
   border-radius: 12rpx;
-  margin-bottom: 1rpx;
-  box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.05);
+  margin-right: 20rpx;
+  object-fit: cover;
+}
 
-  .avatar {
-    width: 100rpx;
-    height: 100rpx;
-    border-radius: 8rpx;
-    margin-right: 20rpx;
-    flex-shrink: 0;
+.content {
+  flex: 1;
+}
+
+.title-line {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8rpx;
+
+  .name {
+    font-size: 32rpx;
+    font-weight: 600;
+    color: #333;
   }
 
-  .content {
+  .time {
+    font-size: 24rpx;
+    color: #999;
+  }
+}
+
+.preview-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .message {
+    font-size: 28rpx;
+    color: #666;
     flex: 1;
-    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    margin-right: 20rpx;
   }
 
-  .title-line {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12rpx;
-
-    .name {
-      font-size: 34rpx;
-      color: #333;
-      font-weight: 520;
-      max-width: 400rpx;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .time {
-      font-size: 24rpx;
-      color: #999;
-    }
-  }
-
-  .preview-line {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-
-    .message {
-      font-size: 28rpx;
-      color: #666;
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      margin-right: 20rpx;
-    }
-
-    .badge {
-      background-color: #f56c6c;
-      color: #fff;
-      font-size: 24rpx;
-      min-width: 36rpx;
-      height: 36rpx;
-      line-height: 36rpx;
-      border-radius: 18rpx;
-      text-align: center;
-      padding: 0 10rpx;
-    }
+  .badge {
+    background-color: #f56c6c;
+    color: white;
+    font-size: 24rpx;
+    padding: 0 12rpx;
+    border-radius: 20rpx;
+    min-width: 36rpx;
+    text-align: center;
+    height: 36rpx;
+    line-height: 36rpx;
   }
 }
 
 .message-item-hover {
-  background-color: #f5f5f5;
-  opacity: 0.9;
+  background-color: #f0f0f0;
 }
 </style>

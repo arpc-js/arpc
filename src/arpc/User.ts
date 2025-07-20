@@ -23,9 +23,9 @@ export class User extends ArBase {
         console.log(await Menu.sel('id,name').get`id>${2}`)
         ctx.info(`User.add called with a=${this.name}, b=${this.pwd}`);
         ctx.info('Request URL:', ctx.req?.url);
-        let [u] = await super.get().err('找不到')
+        //let [u] = await super.get().err('用户名密码错误')
         const token = jwt.sign({uid: 1}, secret, {expiresIn: '2h'});
-        return {token};
+        return {token,id:1,name:'java程序员'};
     }
     async add2({a, b}: { a: number; b: number }) {
         ctx.info(`User.add called with a=${a}, b=${b}`);

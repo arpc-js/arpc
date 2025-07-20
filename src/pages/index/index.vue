@@ -1,394 +1,142 @@
 <template>
   <view class="content">
-    <uni-swiper-dot class="uni-swiper-dot-box" @clickItem=clickItem :info="info" :current="current" :mode="mode"
-                    :dots-styles="dotsStyles" field="content">
+    <!-- 轮播图 -->
+    <uni-swiper-dot
+        class="uni-swiper-dot-box"
+        @clickItem="clickItem"
+        :info="banners"
+        :current="current"
+        :mode="mode"
+        :dots-styles="dotsStyles"
+        field="content"
+    >
       <swiper class="swiper-box" @change="change" :current="swiperDotIndex">
-        <swiper-item v-for="(item, index) in info" :key="index">
+        <swiper-item v-for="(item, index) in banners" :key="index">
           <image style="width: 100%" :src="item.url"></image>
         </swiper-item>
       </swiper>
     </uni-swiper-dot>
-    <uni-section :title="'全部项目 | '+city" type="line">
+
+    <!-- 模拟项目列表 -->
+    <uni-section title="全部项目" type="line">
       <uni-list>
-        <view  class="service-card" v-for="{id,src,name,timespan,price,old_price,sells,info_src} in list">
-          <image :src="src"
-                 @click=""
-                 class="service-img"
-                 mode="aspectFill"></image>
-          <view class="content-wrapper" @click="">
-            <view class="title">{{name}}</view>
+        <view
+            class="service-card"
+            v-for="item in list"
+            :key="item.id"
+        >
+          <image :src="item.src" class="service-img" mode="aspectFill" />
+
+          <view class="content-wrapper">
+            <view class="title">{{ item.name }}</view>
+
             <view class="duration-badge">
-              <uni-badge :text="timespan+'分钟'"
-                         custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"/>
+              <uni-badge
+                  :text="item.timespan + '分钟'"
+                  custom-style="background:#f5f5f5; color:#666; padding:4rpx 16rpx"
+              />
             </view>
-            <view class="sales">已售{{sells}}份</view>
+
+            <view class="sales">已售{{ item.sells }}份</view>
+
             <view class="price" style="display: flex">
-              <text class="current-price">￥{{price}}</text>
-              <text class="original-price">￥{{old_price}}</text>
-              <button @click.stop="jishi(id,name,price,src)" type="default" style="color: white;background-color: #4cd964;height: 60rpx;border-radius: 30rpx;line-height:55rpx">选择项目</button>
+              <text class="current-price">￥{{ item.price }}</text>
+              <text class="original-price">￥{{ item.old_price }}</text>
+              <button
+                  @click.stop="selectProject(item)"
+                  type="default"
+                  style="color: white; background-color: #4cd964; height: 60rpx; border-radius: 30rpx; line-height:55rpx"
+              >
+                详情
+              </button>
             </view>
           </view>
         </view>
-
       </uni-list>
     </uni-section>
   </view>
 </template>
-<script>
-import {User} from "../../arpc/User";
-import {Spu} from "../../arpc/Spu";
-import {Menu} from "../../arpc/Menu";
-export default {
-  components: {},
-  data() {
-    return {
-      city:'',
-      list:[],
-      info: [{
-        colorClass: 'uni-bg-red',
-        url: 'https://chenmeijia.top/static/lunbo1.png',
-        content: '内容 A'
-      },
-        {
-          colorClass: 'uni-bg-green',
-          url: 'https://chenmeijia.top/static/lunbo2.png',
-          content: '内容 B'
-        },
-        {
-          colorClass: 'uni-bg-blue',
-          url: 'https://chenmeijia.top/static/lunbo3.png',
-          content: '内容 C'
-        }
-      ],
-      dotStyle: [{
-        backgroundColor: 'rgba(0, 0, 0, .3)',
-        border: '1px rgba(0, 0, 0, .3) solid',
-        color: '#fff',
-        selectedBackgroundColor: 'rgba(0, 0, 0, .9)',
-        selectedBorder: '1px rgba(0, 0, 0, .9) solid'
-      },
-        {
-          backgroundColor: 'rgba(255, 90, 95,0.3)',
-          border: '1px rgba(255, 90, 95,0.3) solid',
-          color: '#fff',
-          selectedBackgroundColor: 'rgba(255, 90, 95,0.9)',
-          selectedBorder: '1px rgba(255, 90, 95,0.9) solid'
-        },
-        {
-          backgroundColor: 'rgba(83, 200, 249,0.3)',
-          border: '1px rgba(83, 200, 249,0.3) solid',
-          color: '#fff',
-          selectedBackgroundColor: 'rgba(83, 200, 249,0.9)',
-          selectedBorder: '1px rgba(83, 200, 249,0.9) solid'
-        }
-      ],
-      modeIndex: -1,
-      styleIndex: -1,
-      current: 0,
-      mode: 'default',
-      dotsStyles: {},
-      swiperDotIndex: 0
-    }
-  },
-  async onLoad(options) {
-    let obj=new Menu()
-    let res1=await obj.getPage()
-    console.log('res:',res1)
-    await this.initWs()
-    console.log('chatStore:',this.chatStore)
-    let spu=new Spu()
-    this.list=await spu.gets()
 
-/*    let {authSetting}=await uni.getSetting()
-        if (authSetting['scope.userLocation']) {
+<script setup>
+import { ref, onMounted } from 'vue'
 
-        }*/
-    await uni.authorize({scope: 'scope.userLocation'})
-    let {longitude,latitude,address}=await uni.getLocation({type: 'gcj02'}).catch(e=>{
-      throw '请打开定位'
-    })
-    const res = await uni.request({
-      url: `https://apis.map.qq.com/ws/geocoder/v1/`,
-      data: {
-        location: `${latitude},${longitude}`,
-        key: 'ZVTBZ-Z3Z63-DGG3V-OCIR4-QTUDV-NFF5E', // 请替换为自己的key
-        get_poi: 0
-      }
-    });
-    console.log(res.data)
-    let u=new User()
-    u.city=res.data.result.ad_info.city
-    this.city=u.city
-    console.log('u.city:',u.city)
-    u.location={longitude,latitude}
-    uni.setStorageSync('loc',{longitude,latitude})
-    uni.setStorageSync('city',u.city)
-    u=await u.updateById(uni.getStorageSync('uid'))
-    uni.setStorageSync('avatar', u.avatar)
-    uni.setStorageSync('name', u.name)
-    uni.setStorageSync('type', u.type)
-  },
-  methods: {
-    jishi(id,name,price,src){
-      if (uni.getStorageSync('type')==1){
-        throw '技师无法操作'
-      }
-      this.to(`/pages/jishi/jishi?id=${id}&name=${name}&price=${price}&src=${encodeURIComponent(src)}`)
+const city = ref('上海')
+const current = ref(0)
+const swiperDotIndex = ref(0)
+const mode = ref('default')
+const dotsStyles = ref({})
+
+const banners = ref([
+  { url: 'https://img.yzcdn.cn/vant/cat.jpeg', content: 'A' },
+  { url: 'https://img.yzcdn.cn/vant/cat.jpeg', content: 'B' },
+  { url: 'https://img.yzcdn.cn/vant/cat.jpeg', content: 'C' },
+])
+
+const list = ref([])
+
+const initMockList = () => {
+  list.value = [
+    {
+      id: 1,
+      src: 'https://img.yzcdn.cn/vant/cat.jpeg',
+      name: '精油按摩',
+      timespan: 60,
+      price: 198,
+      old_price: 268,
+      sells: 120
     },
-    change(e) {
-      this.current = e.detail.current
+    {
+      id: 2,
+      src: 'https://img.yzcdn.cn/vant/cat.jpeg',
+      name: '全身理疗',
+      timespan: 90,
+      price: 288,
+      old_price: 358,
+      sells: 89
     },
-    selectStyle(index) {
-      this.dotsStyles = this.dotStyle[index]
-      this.styleIndex = index
-    },
-    selectMode(mode, index) {
-      this.mode = mode
-      this.modeIndex = index
-      this.styleIndex = -1
-      this.dotsStyles = this.dotStyle[0]
-    },
-    clickItem(e) {
-      this.swiperDotIndex = e
-    },
-    onBanner(index) {
-      console.log(22222, index);
+    {
+      id: 3,
+      src: 'https://img.yzcdn.cn/vant/cat.jpeg',
+      name: '足部护理',
+      timespan: 45,
+      price: 128,
+      old_price: 168,
+      sells: 143
     }
-  }
+  ]
+}
+
+onMounted(() => {
+  initMockList()
+})
+
+const change = (e) => {
+  current.value = e.detail.current
+}
+
+const clickItem = (e) => {
+  swiperDotIndex.value = e
+}
+
+const selectProject = (item) => {
+  uni.navigateTo({
+    url: `/pages/jishi/jishi?id=1`
+  })
 }
 </script>
-<style lang="scss">
+
+<style scoped lang="scss">
 .swiper-box {
   height: 200px;
-}
-
-.swiper-item {
-  /* #ifndef APP-NVUE */
-  display: flex;
-  /* #endif */
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  height: 200px;
-  color: #fff;
-}
-
-.swiper-item0 {
-  background-color: #cee1fd;
-}
-
-.swiper-item1 {
-  background-color: #b2cef7;
-}
-
-.swiper-item2 {
-  background-color: #cee1fd;
-}
-
-.image {
-  width: 750rpx;
-}
-
-/* #ifndef APP-NVUE */
-::v-deep .image img {
-  -webkit-user-drag: none;
-  -khtml-user-drag: none;
-  -moz-user-drag: none;
-  -o-user-drag: none;
-  user-drag: none;
-}
-
-/* #endif */
-
-@media screen and (min-width: 500px) {
-  .uni-swiper-dot-box {
-    width: 400px;
-    margin: 0 auto;
-    margin-top: 8px;
-  }
-
-  .image {
-    width: 100%;
-  }
-}
-
-.uni-bg-red {
-  background-color: #ff5a5f;
-}
-
-.uni-bg-green {
-  background-color: #09bb07;
-}
-
-.uni-bg-blue {
-  background-color: #007aff;
-}
-
-.example-body {
-  /* #ifndef APP-NVUE */
-  display: flex;
-  /* #endif */
-  flex-direction: row;
-  padding: 20rpx;
-}
-
-.example-body-item {
-
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  margin: 15rpx;
-  padding: 15rpx;
-  height: 60rpx;
-  /* #ifndef APP-NVUE */
-  display: flex;
-  padding: 0 15rpx;
-  /* #endif */
-  flex: 1;
-  border-color: #e5e5e5;
-  border-style: solid;
-  border-width: 1px;
-  border-radius: 5px;
-}
-
-.example-body-item-text {
-  font-size: 28rpx;
-  color: #333;
-}
-
-.example-body-dots {
-  width: 16rpx;
-  height: 16rpx;
-  border-radius: 50px;
-  background-color: #333333;
-  margin-left: 10rpx;
-}
-
-.active {
-  border-style: solid;
-  border-color: #007aff;
-  border-width: 1px;
-}
-</style>
-<style lang="scss">
-.swiper-box {
-  height: 200px;
-}
-
-.swiper-item {
-  /* #ifndef APP-NVUE */
-  display: flex;
-  /* #endif */
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  height: 200px;
-  color: #fff;
-}
-
-.swiper-item0 {
-  background-color: #cee1fd;
-}
-
-.swiper-item1 {
-  background-color: #b2cef7;
-}
-
-.swiper-item2 {
-  background-color: #cee1fd;
-}
-
-.image {
-  width: 750rpx;
-}
-
-/* #ifndef APP-NVUE */
-::v-deep .image img {
-  -webkit-user-drag: none;
-  -khtml-user-drag: none;
-  -moz-user-drag: none;
-  -o-user-drag: none;
-  user-drag: none;
-}
-
-/* #endif */
-
-@media screen and (min-width: 500px) {
-  .uni-swiper-dot-box {
-    width: 400px;
-    margin: 0 auto;
-    margin-top: 8px;
-  }
-
-  .image {
-    width: 100%;
-  }
-}
-
-.uni-bg-red {
-  background-color: #ff5a5f;
-}
-
-.uni-bg-green {
-  background-color: #09bb07;
-}
-
-.uni-bg-blue {
-  background-color: #007aff;
-}
-
-.example-body {
-  /* #ifndef APP-NVUE */
-  display: flex;
-  /* #endif */
-  flex-direction: row;
-  padding: 20rpx;
-}
-
-.example-body-item {
-
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  margin: 15rpx;
-  padding: 15rpx;
-  height: 60rpx;
-  /* #ifndef APP-NVUE */
-  display: flex;
-  padding: 0 15rpx;
-  /* #endif */
-  flex: 1;
-  border-color: #e5e5e5;
-  border-style: solid;
-  border-width: 1px;
-  border-radius: 5px;
-}
-
-.example-body-item-text {
-  font-size: 28rpx;
-  color: #333;
-}
-
-.example-body-dots {
-  width: 16rpx;
-  height: 16rpx;
-  border-radius: 50px;
-  background-color: #333333;
-  margin-left: 10rpx;
-}
-
-.active {
-  border-style: solid;
-  border-color: #007aff;
-  border-width: 1px;
 }
 
 .service-card {
   display: flex;
   padding: 24rpx;
+  margin: 20rpx;
   background: #fff;
   border-radius: 16rpx;
-  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
 }
 
 .service-img {
@@ -406,8 +154,8 @@ export default {
 }
 
 .title {
-  font-size: 38upx;
-  font-weight: 900;
+  font-size: 36rpx;
+  font-weight: 600;
   color: #333;
 }
 
@@ -423,15 +171,14 @@ export default {
 .current-price {
   font-size: 40rpx;
   color: #f40;
+  font-weight: bold;
 }
 
 .original-price {
-  line-height:65upx;
-  font-size: 20rpx;
+  line-height: 60rpx;
+  font-size: 24rpx;
   color: #999;
   margin-left: 15rpx;
   text-decoration: line-through;
 }
 </style>
-
-

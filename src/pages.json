@@ -36,7 +36,7 @@
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "家政服务"
+				"navigationBarTitleText": "arpc-uni"
 			}
 		},
 		{
@@ -111,7 +111,7 @@
   }
 }
 
-		
+
       ,
       {
   "path": "pages/index/spu_info",
