@@ -19,6 +19,7 @@
     "dev:mp-lark": "uni -p mp-lark",
     "dev:mp-qq": "uni -p mp-qq",
     "dev:mp-toutiao": "uni -p mp-toutiao",
+    "prewx": "tsx src/utils/uni-auto-pages",
     "wx": "uni -p mp-weixin",
     "dev:mp-xhs": "uni -p mp-xhs",
     "dev:quickapp-webview": "uni -p quickapp-webview",

@@ -245,10 +245,15 @@ export class ArBase {
         let total=await obj.count()
         return {list,total}
     }
-    async getPage(){
-        let list=await this.get()
-        let total=await this.count()
-        return {list,total}
+    async getPage() {
+        try {
+            let list = await this.get();
+            let total = await this.count();
+            return { list, total };
+        } catch (err) {
+            console.error('getPage error:', err);
+            return { list: [], total: 0 };
+        }
     }
     async count(condition: TemplateStringsArray | number | Record<string, any> = undefined, ...values: any[]):Promise<number> {
         let table = q(this.table);
@@ -295,7 +300,8 @@ export class ArBase {
         console.log(groupNames)
         console.log(groupKeys)
         let grouped=rows
-        if (grouped?.length == (0||undefined)) {
+        console.log(grouped,'................grouped')
+        if (!grouped?.length) {
             throw new Error('Not Found');
         }
         if (groupNames.length > 0) {

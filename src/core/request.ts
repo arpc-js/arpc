@@ -1,4 +1,10 @@
-const BASE_URL = 'http://127.0.0.1'; // 建议改为 import.meta.env.VITE_API_URL
+let base_url, vue_401, uni_401;
+export function initReq({ base_url:url, vue_401: v401, uni_401: u401 }) {
+    base_url = url;
+    vue_401 = v401;
+    uni_401 = u401;
+    console.log('init:',base_url,vue_401,uni_401)
+}
 async function webRequest(url: string, body: any, token: string) {
     const response = await fetch(url, {
         method: 'POST',
@@ -18,7 +24,7 @@ async function webRequest(url: string, body: any, token: string) {
             ? JSON.stringify(await response.json())
             : await response.text();
 
-        if (response.status === 401) {
+        if (response.status === 401&&vue_401) {
             localStorage.removeItem('token');
             location.href = '/login';
         }
@@ -56,7 +62,7 @@ async function uniRequest(url: string, body: any, token: string): Promise<any> {
     if (statusCode >= 200 && statusCode < 300) {
         return data;
     } else {
-        if (statusCode === 401) {
+        if (statusCode === 401&&uni_401) {
             uni.removeStorageSync('token');
             uni.redirectTo({ url: '/pages/login/login' });
         }
@@ -71,7 +77,8 @@ export async function post(mode: string, obj: any, path: string, body: any = {})
     } else {
         token = uni.getStorageSync('token') || ''
     }
-    const url = BASE_URL + path;
+    console.log('base_url:',base_url)
+    const url = base_url + path;
 
     try {
         const data = mode === 'adm'
@@ -80,10 +87,6 @@ export async function post(mode: string, obj: any, path: string, body: any = {})
         console.log(data)
         return data;
     } catch (err: any) {
-        if (err.message === 'Not Found' && obj) {
-            obj.total = 0;
-            obj.list = [];
-        }
         if (mode === 'adm') {
             //@ts-ignore
             window.$message?.error?.(err.message || '请求异常');

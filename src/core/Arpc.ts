@@ -7,7 +7,6 @@ import { URL } from 'url';
 import { AsyncLocalStorage } from 'async_hooks';
 import { IncomingForm, File } from 'formidable';
 import jwt from 'jsonwebtoken';
-import {initDB} from "./ArBase.ts";
 import * as path from 'path';
 
 const controllerCache: Record<string, any> = {};
@@ -366,10 +365,10 @@ async function deepAssign(instance: any, data: any): Promise<any> {
         if (!(key in {...types,page:0,size:0,sel:null})) continue; // 只处理定义过的字段
         const value = data[key];
         const declared = types[key];
-        if (key === 'sel' && Array.isArray(value)&&value.length>0) {
+/*        if (key === 'sel' && Array.isArray(value)&&value.length>0) {
             instance.setSel(...await Promise.all(value.map(convertJsonToSelInstance)));
             continue;
-        }
+        }*/
         // ---------- 原逻辑 ----------
         if (typeof declared === 'string') {
             if (declared.endsWith('[]') && Array.isArray(value)) {
@@ -406,8 +405,8 @@ interface MiddlewareContext {
 type Middleware = (params: MiddlewareContext) => Promise<void> | void;
 
 // ------------ 最核心的 oapi ------------
-let conf:{ rpcDir?: string,dsn?:string } = {}
-export function Arpc(options: { rpcDir?: string,dsn?:string } = {}) {
+let conf:{ rpc_dir?: string} = {}
+export function Arpc(options: { rpc_dir?: string} = {}) {
     //重写promise原型链
     Promise.prototype.err = function (msg) {
         return this.catch(e => {
@@ -417,11 +416,8 @@ export function Arpc(options: { rpcDir?: string,dsn?:string } = {}) {
         });
     };
     const middlewares: Function[] = [];
-    options.rpcDir = options.rpcDir ?? 'src/arpc';
+    options.rpc_dir = options.rpc_dir ?? 'src/arpc';
     conf=options
-    if (conf.dsn){
-        initDB(conf.dsn)
-    }
     return {
         use(mw: Middleware) {
             middlewares.push(mw);

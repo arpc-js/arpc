@@ -63,60 +63,56 @@ function parseAst(classString) {
 
 
 
-function arpc_cli(mode) {
+function arpc_cli({rpc_dir,base_url,mode,interceptor,uni_401='',vue_401=''}) {
     return {
         name: 'proxy',
         enforce: 'pre',
         async transform(code, id) {
-            if (id.includes('/src/arpc') && id.includes('.ts')) {
+            if (id.includes(rpc_dir) && id.includes('.ts')) {
                 let {name, attr, fns} = parseAst(code)
-                let aa = null
-                aa = fns.map(x => `${x.static} async ${x.name}(...args){
-                    if('${x.name}'=='reset'){
-                        deepClear(this);//深度置空
-                        return
-                    }
-                    delete this.model //第一个类不需要model能确定
-                    let {list,total,...rest}=this
-                    const data  = await post('${mode}',this,'/${name.toLowerCase()}/${x.name}',{...rest,sel:this.sel,args:args});
-                    deepClear(this);//深度置空
-                    if (data?.list) {
-                        this.list = data.list;
-                    }
-                    //分页双向绑定了total，变更为空自动刷新分页，不引用不影响
-                    this.total = data.total
-                    //可以对象克隆，或者转为对应对象
+
+                // interceptorFn 要么是函数，要么是函数字符串
+                // 转成字符串，方便内联
+                let interceptorStr = typeof interceptor === 'function' ? interceptor.toString() : interceptor;
+
+                let aa = fns.map(x => `
+                @interceptor
+                ${x.static} async ${x.name}(...args){
+                    let {list,total,...rest} = this;
+                    const data = await post('${mode}', this, '/${name.toLowerCase()}/${x.name}', {...rest, sel:this.sel, args:args});
                     return Array.isArray(data) ? reactive(data.map(item => reactive(item))) : reactive(data);
-              }`)
-                //User源代码被替换了
+                }`)
+
                 code = `
-                import { post } from '../core/request.ts';
+                import { post,initReq } from '../core/request.ts';
                 import { deepClear } from '../core/utils.js';
-                import {reactive,ref,onMounted,nextTick} from "vue";
+                import { reactive, ref, onMounted, nextTick } from "vue";
+                // 内联拦截器函数
+                const interceptor = ${interceptorStr};
+
                 export class ${name} {
-                                constructor() {
-                                   return reactive(this)
-                                }
-                                ${attr.join(';')};
-                                 static sel(...fields) {
-                                   const instance = new this();
-                                   instance.sel = fields.length > 0 ? fields : ['**'];
-                                   instance.model=instance.constructor.name
-                                 return reactive(instance);
-                                } 
-                                 sel(...fields) {
-                                   //const instance = new this();
-                                   this.sel = fields.length > 0 ? fields : ['**'];
-                                   this.model=this.constructor.name
-                                 return this;
-                                } 
-                                ${aa.join('\n')}
-                            }
-`
-                //console.log('code:',code)
+                    constructor() {
+                        initReq({base_url:'${base_url}',vue_401:'${vue_401}',uni_401:'${uni_401}'})
+                        return reactive(this)
+                    }
+                    ${attr.join(';')};
+                    static sel(...fields) {
+                        const instance = new this();
+                        instance.sel = fields.length > 0 ? fields : ['**'];
+                        instance.model = instance.constructor.name;
+                        return reactive(instance);
+                    }
+                    sel(...fields) {
+                        this.sel = fields.length > 0 ? fields : ['**'];
+                        this.model = this.constructor.name;
+                        return this;
+                    }
+                    ${aa.join('\n')}
+                }
+                `
                 return {
-                    code: code,
-                    map: null // 不生成sourcemap
+                    code,
+                    map: null
                 }
             }
         }
