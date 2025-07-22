@@ -3,14 +3,15 @@ import { Pool as PgPool } from 'pg'
 import mysql from 'mysql2/promise'
 import { PGlite } from '@electric-sql/pglite'
 import { AsyncLocalStorage } from 'async_hooks'
-import {controllers} from "./Arpc.ts";
-
+import {init_class} from "./init_class_map.ts";
+let controllers: Record<string, any> = {};
 let sql: any
 export let dbType: 'postgres' | 'mysql' | 'pglite'
 
 const asyncLocalStorage = new AsyncLocalStorage<Record<string, any>>()
 
 export async function initDB(dsn: string) {
+    controllers=await init_class()
     if (dsn.startsWith('postgres://')) {
         dbType = 'postgres'
         sql = new PgPool({ connectionString: dsn })

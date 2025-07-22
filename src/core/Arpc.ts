@@ -1,16 +1,17 @@
 import http from 'http';
 import { readdir } from 'fs/promises';
 import fs from 'fs';
-import { pathToFileURL, fileURLToPath } from 'url';
+import { pathToFileURL } from 'url';
 import ts from 'typescript';
 import { URL } from 'url';
 import { AsyncLocalStorage } from 'async_hooks';
 import { IncomingForm, File } from 'formidable';
 import jwt from 'jsonwebtoken';
 import * as path from 'path';
+import {init_class} from "./init_class_map.ts";
 
 const controllerCache: Record<string, any> = {};
-export const controllers: Record<string, any> = {};
+export let controllers: Record<string, any> = {};
 
 interface ContextData {
     req: http.IncomingMessage;
@@ -341,13 +342,13 @@ async function loadAndInjectTypes(name: string): Promise<any> {
 
     let typesMap: Record<string, string> = {};
     try {
-        typesMap = extractTypesFromFile(`${conf.rpcDir}/${capitalize(name)}.ts`)[capitalize(name)] || {};
+        typesMap = extractTypesFromFile(`${conf.rpc_dir}/${capitalize(name)}.ts`)[capitalize(name)] || {};
     } catch (e) {
         console.warn(`[Type Extract Warning] Failed for ${name}:`, (e as Error).message);
     }
 
     try {
-        const mod = await import(pathToFileURL(`${conf.rpcDir}/${capitalize(name)}.ts`).toString());
+        const mod = await import(pathToFileURL(`${conf.rpc_dir}/${capitalize(name)}.ts`).toString());
         const Cls = mod.default ?? mod[capitalize(name)];
         Cls.types = typesMap;
         controllerCache[name] = Cls;
@@ -423,14 +424,8 @@ export function Arpc(options: { rpc_dir?: string} = {}) {
             middlewares.push(mw);
         },
         async listen(port = 3000) {
-            const files = await readdir(conf.rpcDir);
-            await Promise.all(files
-                .filter(f => f.endsWith('.js') || f.endsWith('.ts'))
-                .map(async file => {
-                    const name = file.replace(/\.(js|ts)$/, '').toLowerCase();
-                    controllers[name] = await loadAndInjectTypes(name);
-                }));
-
+            const files = await readdir(conf.rpc_dir);
+            controllers=await init_class()
             const server = http.createServer(async (req, res) => {
                 const traceId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
                 asyncLocalStorage.run({ req, res, traceId }, async () => {
