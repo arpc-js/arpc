@@ -20,7 +20,7 @@ export class User extends ArBase<User> {
     roles: Role[]
     @required('name', 'pwd')//验证参数和
     async login(code) {
-        console.log(await Menu.sel('id,name').get`id>${2}`)
+        console.log(await User.sel('id','name',Role.sel('*')).get`id>${2}`)
         ctx.info(`User.add called with a=${this.name}, b=${this.pwd}`);
         ctx.info('Request URL:', ctx.req?.url);
         ctx.err('Request URL:', ctx.req?.url);

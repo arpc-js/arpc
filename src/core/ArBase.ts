@@ -157,7 +157,7 @@ export class ArBase <T extends ArBase<T> = any>{
     get table(){
      return this.constructor.name.toLowerCase()
     }
-    get types(){
+    get types():Record<string, string>{
         //@ts-ignore
         return this.constructor.types
     }
@@ -567,7 +567,7 @@ function getSqlParts(root: ArBase) {
 
     joinedTables.add(rootName);
 
-    function walk(model: ArBase, tableName: string) {
+    function walk(model: ArBase, tableName: string,groupName='') {
         let sel = model.getSel();
         //sel = sel?.[0] !== undefined ? sel : ['*'];
         console.log(`sel:`,sel)
@@ -575,9 +575,7 @@ function getSqlParts(root: ArBase) {
         groupKeys.push(`${tableName}_id`);
         // 转换为聚合数组字段名（roles、permissions）
         if (groupKeys.length > 1) {
-            const lastKey = groupKeys[groupKeys.length - 1];
-            const name = lastKey.replace(/_id$/, '');
-            groupNames.push(name.endsWith('s') ? name : name + 's');
+            groupNames.push(groupName);
         }
 
         for (const field of sel || []) {
@@ -626,8 +624,10 @@ function getSqlParts(root: ArBase) {
                         joinedTables.add(childTable);
                     }
                 }
-
-                walk(field, childTable);
+                let pmodel=field.constructor.name
+                const groupName = Object.entries(model.types)
+                    .find(([_, v]) => [pmodel,`${pmodel}[]`].includes(v))?.[0];
+                walk(field, childTable,groupName);
             }
         }
     }
