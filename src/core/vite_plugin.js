@@ -63,7 +63,7 @@ function parseAst(classString) {
 
 
 
-function arpc_cli({rpc_dir,base_url,mode,interceptor,uni_401='',vue_401=''}) {
+function arpc_cli({rpc_dir,base_url,mode,interceptor,vue_login='',uni_login=''}) {
     return {
         name: 'proxy',
         enforce: 'pre',
@@ -92,7 +92,7 @@ function arpc_cli({rpc_dir,base_url,mode,interceptor,uni_401='',vue_401=''}) {
 
                 export class ${name} {
                     constructor() {
-                        initReq({base_url:'${base_url}',vue_401:'${vue_401}',uni_401:'${uni_401}'})
+                        initReq({base_url:'${base_url}',vue_login:'${vue_login}',uni_login:'${uni_login}'})
                         return reactive(this)
                     }
                     ${attr.join(';')};

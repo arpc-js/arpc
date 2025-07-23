@@ -8,6 +8,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { IncomingForm, File } from 'formidable';
 import jwt from 'jsonwebtoken';
 import * as path from 'path';
+import { existsSync } from 'fs';
 import {init_class} from "./init_class_map.ts";
 
 const controllerCache: Record<string, any> = {};
@@ -51,17 +52,57 @@ export const ctx = {
     get uid() {
         return this.store?.uid;
     },
-    info(...args: any[]) {
+    log(level: string, ...args: any[]) {
         const time = new Date().toISOString();
-        console.info(`[${time}][INFO][${this.traceId ?? 'no-trace'}]`, ...args);
+        const trace = this.traceId ?? 'no-trace';
+        const lvl = level.toUpperCase();
+
+        const levelMethodMap: Record<string, keyof Console> = {
+            FATAL: 'error',
+            ERROR: 'error',
+            WARN: 'warn',
+            INFO: 'info',
+            DEBUG: 'debug',
+            TRACE: 'debug',   // TRACE用debug级别打印，区别在于语义
+            VERBOSE: 'log',
+        };
+
+        const method = levelMethodMap[lvl] || 'log';
+        const methodKey = method as keyof Console;
+        const fn = console[methodKey];
+        if (typeof fn === 'function') {
+            if (args[0] instanceof Error) {
+                fn.call(console, `[${time}][${lvl}][${trace}]`, args[0].message);
+                if (args[0].stack) {
+                    fn.call(console, args[0].stack);
+                }
+            } else {
+                fn.call(console, `[${time}][${lvl}][${trace}]`, ...args);
+            }
+        } else {
+            console.log(`[${time}][${lvl}][${trace}]`, ...args);
+        }
+    },
+    info(...args: any[]) {
+        this.log('INFO', ...args);
     },
     err(...args: any[]) {
-        const time = new Date().toISOString();
-        console.error(`[${time}][ERROR][${this.traceId ?? 'no-trace'}]`, ...args);
+        this.log('ERROR', ...args);
     },
     debug(...args: any[]) {
-        const time = new Date().toISOString();
-        console.debug(`[${time}][DEBUG][${this.traceId ?? 'no-trace'}]`, ...args);
+        this.log('DEBUG', ...args);
+    },
+    warn(...args: any[]) {
+        this.log('WARN', ...args);
+    },
+    fatal(...args: any[]) {
+        this.log('FATAL', ...args);
+    },
+    trace(...args: any[]) {
+        this.log('TRACE', ...args);
+    },
+    verbose(...args: any[]) {
+        this.log('VERBOSE', ...args);
     },
 };
 
@@ -417,11 +458,18 @@ export function Arpc(options: { rpc_dir?: string} = {}) {
         });
     };
     const middlewares: Function[] = [];
-    options.rpc_dir = options.rpc_dir ?? 'src/arpc';
+    const root = process.cwd();
+    const hasSrc = existsSync(path.join(root, 'src'));
+    if (hasSrc){
+        options.rpc_dir = options.rpc_dir ?? 'src/arpc';
+    }else {
+        options.rpc_dir = options.rpc_dir ?? 'arpc';
+    }
     conf=options
     return {
         use(mw: Middleware) {
             middlewares.push(mw);
+            return this
         },
         async listen(port = 3000) {
             const files = await readdir(conf.rpc_dir);
@@ -537,27 +585,29 @@ async function convertJsonToSelInstance(item: any): Promise<any> {
 // 跨域中间件工厂
 // 鉴权中间件工厂，传入期望的token
 // 可配置：白名单和密钥
-export function auth(secret: string,whitelist: string[] = []) {
+export function jwt_sign(secret,payload,expiresIn='2h') {
+    return jwt.sign(payload, secret, {expiresIn:expiresIn})
+}
+export function jwt_auth(secret: string, whitelist: string[] = []) {
     return async ({req,res,next}) => {
         ctx.info(`请求: [${req.method}] ${req.url}`);
 
         if (whitelist.includes('*') || whitelist.includes(req.url)) {
             await next();
-            ctx.info(`响应完成: [${req.method}] ${req.url}`);
             return;
         }
 
         const authHeader = req.headers["authorization"];
         if (!authHeader) {
             ctx.info("缺少 Authorization 头");
-            res.status(401).json({ error: "Token missing" });
+            res.status(401).text('Authorization issing');
             return;
         }
 
         const [scheme, token] = authHeader.split(' ');
         if (scheme !== 'Bearer' || !token) {
             ctx.info("Authorization 格式错误");
-            res.status(401).json({ error: "Invalid auth header format" });
+            res.status(401).text('Authorization format error');
             return;
         }
 
@@ -567,7 +617,7 @@ export function auth(secret: string,whitelist: string[] = []) {
             ctx.info(`验证成功: uid=${decoded.uid}`);
         } catch (err: any) {
             ctx.info(`Token 无效或过期: ${err.message}`);
-            res.status(401).json({ error: "Token invalid or expired" });
+            res.status(401).text('Unauthorized');
             return;
         }
         // 🟢 真正的路由执行放在验证通过之后，独立 try-catch（如有需要）或者交由上层处理
@@ -649,3 +699,87 @@ export function required(...fields: string[]) {
         };
     };
 }
+const mimeTypes: Record<string, string> = {
+    '.html': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.js': 'application/javascript; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon',
+    '.txt': 'text/plain; charset=utf-8',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+    // 根据需要补充
+};
+
+//有文件返回文件，没文件取请求接口
+export function staticPlugin(staticDir: string) {
+    // 支持传入相对路径，转成绝对路径
+    const rootDir = path.isAbsolute(staticDir) ? staticDir : path.resolve(process.cwd(), staticDir);
+
+    return async ({ req, res, next }) => {
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+            await next();
+            return;
+        }
+
+        try {
+            const url = new URL(req.url || '', `http://${req.headers.host}`);
+            let filePath = path.join(rootDir, decodeURIComponent(url.pathname));
+            console.log('file_path:',filePath)
+            // 防止路径穿越攻击，确保文件在static目录下
+            if (!filePath.startsWith(rootDir)) {
+                await next();
+                return;
+            }
+
+            // 如果是目录，尝试读取index.html
+            const stat = await fs.promises.stat(filePath).catch(() => null);
+            if (stat && stat.isDirectory()) {
+                filePath = path.join(filePath, 'index.html');
+            }
+
+            // 再次确认文件存在
+            const fileStat = await fs.promises.stat(filePath).catch(() => null);
+            if (!fileStat || !fileStat.isFile()) {
+                await next();
+                return;
+            }
+
+            const ext = path.extname(filePath).toLowerCase();
+            const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Content-Length', fileStat.size.toString());
+
+            // 如果是HEAD请求，直接返回
+            if (req.method === 'HEAD') {
+                res.status(200).end();
+                return;
+            }
+
+            // 创建文件流返回
+            const stream = fs.createReadStream(filePath);
+            stream.pipe(res.res); // 注意这里传入的是原生 http.ServerResponse 对象
+
+            // 错误处理
+            stream.on('error', (err) => {
+                res.status(500).text('Internal Server Error');
+            });
+        } catch (err) {
+            await next();
+        }
+    };
+}
+export function logReq() {
+    return async ({ctx, req, res, next }) => {
+        ctx.info('req:',ctx.req?.url)
+        let rsp=await next();
+        ctx.info('res:',rsp)
+    };
+}
+

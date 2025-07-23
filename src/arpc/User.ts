@@ -1,11 +1,11 @@
-import {ctx, required} from '../core/Arpc.ts';
+import {ctx, required, jwt_sign} from '../core/Arpc.ts';
 import jwt from "jsonwebtoken";
 import {ArBase, prop} from "../core/ArBase.ts";
 import {Role} from "./Role.ts";
 import {Menu} from "./Menu.ts";
 import type {Profile} from "./Profile.ts";
 import {secret} from "../index.ts";
-export class User extends ArBase {
+export class User extends ArBase<User> {
     @prop({ tag: '名称',filter: true,required: true, rules: [{ min: 2, message: '至少2个字' }]})
     name: string
     @prop({ tag: '密码',filter: true})
@@ -23,8 +23,9 @@ export class User extends ArBase {
         console.log(await Menu.sel('id,name').get`id>${2}`)
         ctx.info(`User.add called with a=${this.name}, b=${this.pwd}`);
         ctx.info('Request URL:', ctx.req?.url);
+        ctx.err('Request URL:', ctx.req?.url);
         //let [u] = await super.get().err('用户名密码错误')
-        const token = jwt.sign({uid: 1}, secret, {expiresIn: '2h'});
+        const token = jwt_sign(secret,{uid: 1})
         return {token,id:1,name:'java程序员'};
     }
     async add2({a, b}: { a: number; b: number }) {

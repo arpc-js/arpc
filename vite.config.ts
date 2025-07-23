@@ -29,8 +29,8 @@ let uni_plugins=[uni()]
         mode,
         rpc_dir: '/src/arpc',
         base_url: 'http://127.0.0.1',
-        vue_401: '/login',
-        uni_401: '/pages/login/login',
+        vue_login: '/login',
+        uni_login: '/pages/login/login',
         interceptor
       }),
       createHtmlPlugin({

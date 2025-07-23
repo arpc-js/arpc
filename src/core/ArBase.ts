@@ -10,7 +10,7 @@ export let dbType: 'postgres' | 'mysql' | 'pglite'
 
 const asyncLocalStorage = new AsyncLocalStorage<Record<string, any>>()
 
-export async function initDB(dsn: string) {
+export async function init_Arbase(dsn: string) {
     controllers=await init_class()
     if (dsn.startsWith('postgres://')) {
         dbType = 'postgres'
@@ -72,7 +72,7 @@ export function getsql() {
     return ctx('tx') || sql
 }
 
-export class ArBase {
+export class ArBase <T extends ArBase<T> = any>{
     // 定义非枚举属性的工具方法
     setHiddenProp(key: string, value: any) {
         Object.defineProperty(this, key, {
@@ -271,7 +271,7 @@ export class ArBase {
         let rows=await uniQuery(text, allArgs)
         return Number(rows[0].count);
     }
-    async get(condition: TemplateStringsArray | number | Record<string, any>=undefined, ...values: any[]):Promise<[]> {
+    async get(condition: TemplateStringsArray | number | Record<string, any>=undefined, ...values: any[]):Promise<T[]> {
         console.log(this.page)
         let table = q(this.table);
         const { selectCols, joins, args: joinArgs, paramCount, groupKeys, groupNames } = getSqlParts(this);

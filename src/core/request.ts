@@ -1,9 +1,9 @@
-let base_url, vue_401, uni_401;
-export function initReq({ base_url:url, vue_401: v401, uni_401: u401 }) {
+let base_url, vue_login, uni_login;
+export function initReq({ base_url:url, vue_login: vlogin, uni_login: ulogin }) {
     base_url = url;
-    vue_401 = v401;
-    uni_401 = u401;
-    console.log('init:',base_url,vue_401,uni_401)
+    vue_login = ulogin;
+    uni_login = ulogin;
+    console.log('init:',base_url,vue_login,uni_login)
 }
 async function webRequest(url: string, body: any, token: string) {
     const response = await fetch(url, {
@@ -24,9 +24,9 @@ async function webRequest(url: string, body: any, token: string) {
             ? JSON.stringify(await response.json())
             : await response.text();
 
-        if (response.status === 401&&vue_401) {
+        if (response.status === 401&&vue_login) {
             localStorage.removeItem('token');
-            location.href = '/login';
+            location.href = vue_login;
         }
 
         throw new Error(errorText);
@@ -62,9 +62,9 @@ async function uniRequest(url: string, body: any, token: string): Promise<any> {
     if (statusCode >= 200 && statusCode < 300) {
         return data;
     } else {
-        if (statusCode === 401&&uni_401) {
+        if (statusCode === 401&&uni_login) {
             uni.removeStorageSync('token');
-            uni.redirectTo({ url: '/pages/login/login' });
+            uni.redirectTo({ url: uni_login });
         }
         throw new Error(typeof data === 'string' ? data : JSON.stringify(data));
     }
