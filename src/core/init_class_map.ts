@@ -94,9 +94,8 @@ async function findAllClassFiles(
     return fileList;
 }
 
-export async function init_class(): Promise<Record<string, any>> {
+export async function init_class(scanDir='./'): Promise<Record<string, any>> {
     // 只扫描指定目录，改成你项目中类文件所在目录
-    const scanDir = './';
     const allFiles = await findAllClassFiles(scanDir);
 
     await Promise.all(allFiles.map(file => loadAndInjectTypes(file)));

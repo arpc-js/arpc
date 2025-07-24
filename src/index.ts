@@ -1,6 +1,6 @@
 import {jwt_auth, cors, Arpc, onError, staticPlugin} from "./core/Arpc.ts";
-import {init_Arbase} from "./core/ArBase.ts";
-init_Arbase('postgres://postgres:postgres@156.238.240.143:5432/postgres')
+import {arbase} from "./core/ArBase.ts";
+arbase('postgres://postgres:postgres@156.238.240.143:5432/postgres')
 export let secret='secret'//jwt私钥
 Arpc()
     .use(onError)//全局异常中间件

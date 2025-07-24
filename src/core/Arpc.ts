@@ -473,7 +473,7 @@ export function Arpc(options: { rpc_dir?: string} = {}) {
         },
         async listen(port = 3000) {
             const files = await readdir(conf.rpc_dir);
-            controllers=await init_class()
+            controllers=await init_class(conf.rpc_dir)
             const server = http.createServer(async (req, res) => {
                 const traceId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
                 asyncLocalStorage.run({ req, res, traceId }, async () => {

@@ -3,15 +3,35 @@ import { Pool as PgPool } from 'pg'
 import mysql from 'mysql2/promise'
 import { PGlite } from '@electric-sql/pglite'
 import { AsyncLocalStorage } from 'async_hooks'
+import { existsSync } from 'fs';
+import * as path from 'path';
 import {init_class} from "./init_class_map.ts";
 let controllers: Record<string, any> = {};
 let sql: any
 export let dbType: 'postgres' | 'mysql' | 'pglite'
 
 const asyncLocalStorage = new AsyncLocalStorage<Record<string, any>>()
-
-export async function init_Arbase(dsn: string) {
-    controllers=await init_class()
+let conf:{del_mode: 'soft'|'hard' }={del_mode:'hard'}
+export async function arbase(config: string|{ dsn: string,rpc_dir:string,del_mode: 'soft'|'hard' }) {
+    let dsn
+    let rpc_dir
+    const root = process.cwd();
+    const hasSrc = existsSync(path.join(root, 'src'));
+    if (hasSrc){
+        //@ts-ignore
+        rpc_dir = config?.rpc_dir ?? 'src/arpc';
+    }else {
+        //@ts-ignore
+        rpc_dir = config?.rpc_dir ?? 'arpc';
+    }
+    if (typeof config !== "string") {
+        dsn=config.dsn
+        conf.del_mode = config?.del_mode||'hard'
+    }else {
+        dsn=config
+    }
+    console.log(rpc_dir)
+    controllers=await init_class(rpc_dir)
     if (dsn.startsWith('postgres://')) {
         dbType = 'postgres'
         sql = new PgPool({ connectionString: dsn })
@@ -262,9 +282,17 @@ export class ArBase <T extends ArBase<T> = any>{
         let { whereClause, whereArgs } = buildWhereClause(this, condition, values, paramCount + 1);
         // 加上 is_deleted 条件
         if (whereClause) {
-            whereClause += ` AND ${table}.is_deleted IS NOT TRUE`;
+            let softwhere=''
+            if (conf.del_mode=='soft'){
+                softwhere=` AND ${table}.is_deleted IS NOT TRUE`
+            }
+            whereClause +=softwhere;
         } else {
-            whereClause = `WHERE ${table}.is_deleted IS NOT TRUE`;
+            let softwhere=''
+            if (conf.del_mode=='soft'){
+                softwhere=`${table}.is_deleted IS NOT TRUE`
+            }
+            whereClause = `WHERE ${softwhere}`;
         }
         const allArgs = [...joinArgs, ...whereArgs];
         const text = `SELECT COUNT(*) AS count FROM ${table} ${joins.join(' ')} ${whereClause}`;
@@ -279,9 +307,17 @@ export class ArBase <T extends ArBase<T> = any>{
         let { whereClause, whereArgs } = buildWhereClause(this, condition, values, paramCount + 1);
 
         if (whereClause) {
-            whereClause += ` AND ${table}.is_deleted is not true`;
+            let softwhere=''
+            if (conf.del_mode=='soft'){
+                softwhere=` AND ${table}.is_deleted IS NOT TRUE`
+            }
+            whereClause +=softwhere;
         } else {
-            whereClause = `WHERE ${table}.is_deleted is not true`;
+            let softwhere=''
+            if (conf.del_mode=='soft'){
+                softwhere=`${table}.is_deleted IS NOT TRUE`
+            }
+            whereClause = `WHERE ${softwhere}`;
         }
         let allArgs = [...joinArgs, ...whereArgs];
         //判断分页，如果有分页就把主表换成分页的,where放前面,参数翻转
@@ -338,14 +374,20 @@ export class ArBase <T extends ArBase<T> = any>{
     }
     //所有对象，包含子对象通过id增删改，无id增，有修改，有is_deleted软删除
     async del(condition: TemplateStringsArray | number | Record<string, any>=null, ...values: any[]):Promise<number> {
-        this.is_deleted=true
-        return await this.update(condition,...values);
+        if (conf.del_mode=='soft'){
+            return this.softDel(condition,...values)
+        }
+        return this.hardDel(condition,...values)
     }
-    async fdel(condition: TemplateStringsArray | number | Record<string, any> = null, ...values: any[]):Promise<number> {
+    async hardDel(condition: TemplateStringsArray | number | Record<string, any> = null, ...values: any[]):Promise<number> {
         const table = q(this.table);
         const { whereClause, whereArgs } = buildWhereClause(this, condition, values, 1);
         const text = `DELETE FROM ${table} ${whereClause}`;
         return await uniQuery(text, whereArgs, 'delete');
+    }
+    async softDel(condition: TemplateStringsArray | number | Record<string, any> = null, ...values: any[]):Promise<number> {
+        this.is_deleted=true
+        return await this.update(condition,...values);
     }
     //递归ar增删改操作
     //角色权限嵌套多表，加声明式事务
@@ -358,10 +400,26 @@ export class ArBase <T extends ArBase<T> = any>{
         console.log(this.types)
         const table = this.table
         const { main, oneToOne, oneToMany } = splitFields(this);
-        // 插入主表
-        const id=this.id?await this.update():await add(table,main)
+        // 操作主表增删改，硬删除额外判断，软删除复用update
+        let id
+        if (this.id){//修改，或者删除
+            id=this.id
+            if (this.is_deleted){
+             await this.del()//自动判断软硬删除
+            }
+            await this.update()
+        }else {//新增
+            id=await add(table,main)
+        }
         // 插入1对1，如果有id修改对象维护关系，否则插入对象维护关系
         for (const v of Object.values(oneToOne)) {
+            //解除以前关系，覆盖新关系
+            //@ts-ignore
+            if (v.id){
+                v[`${table}_id`]=null
+                //@ts-ignore
+                await v.update`${table}_id=${id}`
+            }
             v[`${table}_id`]=id
             //@ts-ignore id判断增改，is_delete的改是删除
             await v._sync()
@@ -380,7 +438,7 @@ export class ArBase <T extends ArBase<T> = any>{
                     let sub_table = item.constructor.name.toLowerCase();
                     const joinTableName = [table, sub_table].sort().join('_');
                     const rdata = {[`${table}_id`]: id, [`${sub_table}_id`]: item_row.id}
-                    await add(joinTableName,rdata)
+                    await addConflictDoNothing(joinTableName,rdata)
                 }
             }
         }
@@ -396,32 +454,51 @@ export class ArBase <T extends ArBase<T> = any>{
         const table = this.table
         const { main, oneToOne, oneToMany } = splitFields(this);
         // 插入主表
-        const id=this.id?await this.update():await add(table,main)
+        let id
+        if (this.id){//修改，或者删除
+            id=this.id
+            if (this.is_deleted){
+                await this.del()//自动判断软硬删除
+            }
+            await this.update()
+        }else {//新增
+            id=await add(table,main)
+        }
+        let sql=getsql()
         // 插入1对1，如果有id修改对象维护关系，否则插入对象维护关系
         for (const v of Object.values(oneToOne)) {
+            //解除以前关系，覆盖新关系
+            //@ts-ignore
+            if (v.id){
+                v[`${table}_id`]=null
+                //@ts-ignore
+                await v.update`${table}_id=${id}`
+            }
             v[`${table}_id`]=id
             //@ts-ignore id判断增改，is_delete的改是删除
             await v._sync()
-            //解引用
         }
         // 遍历所有数组，区分1对多，多多多，如果有id维护关系就行，否则插入并维护关系
         for (const arr of Object.values(oneToMany)) {
+            //删除未传入的id关系
             //@ts-ignore
             for (const item of arr) {
                 if (!this.isManyToMany(item)){//维护1对多关系
+                    //删除未传的子对象关系,只能执行一次
+                    item[`${table}_id`]=null
+                    //@ts-ignore
+                    await v.update`id not in (${arr.map(i => i.id).join(',')})`
                     item[`${table}_id`]=id
-                    //解引用
                 }
                 //@ts-ignore id判断增改，is_delete的改是删除
                 let [item_row]=await item._sync()
                 //insert confict do nothing 维护多对多关系，删除不需要维护新关系
-                if (this.isManyToMany(item)&&!item_row.is_deleted){
+                if (this.isManyToMany(item)){
                     let sub_table = item.constructor.name.toLowerCase();
                     const joinTableName = [table, sub_table].sort().join('_');
                     const rdata = {[`${table}_id`]: id, [`${sub_table}_id`]: item_row.id}
                     await add(joinTableName,rdata)
-                    //解引用
-                    let sql=getsql()
+                    //解除以前关系，覆盖新关系
                     //@ts-ignore
                     let text = `update ${joinTableName} set is_deleted=true where ${table}_id=${row.id} and ${sub_table}_id not in (${arr.map(i => i.id).join(',')})`
                     await sql.query(text)
@@ -536,6 +613,21 @@ async function add(table, obj) {
     const rows = await uniQuery(text, values,'add')
     return rows
 }
+async function addConflictDoNothing(table, obj) {
+    const keys = Object.keys(obj).filter(k => obj[k] !== undefined && obj[k] !== null)
+    const cols = keys.map(k => `${q(k)}`).join(', ')
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ')
+    const values = Object.values(obj)
+    let text
+    if (dbType=='mysql'){
+        text = `INSERT IGNORE INTO ${q(table)} (${cols}) VALUES (${placeholders})`
+    }else {
+         text = `INSERT INTO ${q(table)} (${cols}) VALUES (${placeholders}) ON CONFLICT DO NOTHING RETURNING *`
+    }
+    console.log(text,values)
+    const rows = await uniQuery(text, values,'add')
+    return rows
+}
 /**
  * 给 on 条件里的字段添加表名前缀
  * 简单做法：对形如 id、name 等独立字段加前缀，忽略已有点的字段
@@ -591,11 +683,19 @@ function getSqlParts(root: ArBase) {
                 const joinTableName = tables.join('_');
                 if (model.isManyToMany(field)) {
                     if (!joinedTables.has(joinTableName)) {
-                        joins.push(`LEFT JOIN ${q(joinTableName)} ON ${q(tableName)}.id = ${q(joinTableName)}.${tableName}_id and ${q(joinTableName)}.is_deleted is not true`);
+                        let softwhere=''
+                        if (conf.del_mode=='soft'){
+                            softwhere=`and ${q(joinTableName)}.is_deleted is not true`
+                        }
+                        joins.push(`LEFT JOIN ${q(joinTableName)} ON ${q(tableName)}.id = ${q(joinTableName)}.${tableName}_id ${softwhere}`);
                         joinedTables.add(joinTableName);
                     }
                     if (!joinedTables.has(childTable)) {
-                        const baseJoin = `${q(joinTableName)}.${childTable}_id = ${q(childTable)}.id and ${q(childTable)}.is_deleted is not true`;
+                        let softwhere=''
+                        if (conf.del_mode=='soft'){
+                            softwhere=`and ${q(childTable)}.is_deleted is not true`
+                        }
+                        const baseJoin = `${q(joinTableName)}.${childTable}_id = ${q(childTable)}.id ${softwhere}`;
                         const extra = field.getOnStatement();
                         const extraArgs = field.getOnArgs();
                         let joinCond = baseJoin;
@@ -610,7 +710,11 @@ function getSqlParts(root: ArBase) {
                     }
                 } else {
                     if (!joinedTables.has(childTable)) {
-                        const baseJoin = `${q(tableName)}.id = ${q(childTable)}.${tableName}_id and ${q(childTable)}.is_deleted is not true`;
+                        let softwhere=''
+                        if (conf.del_mode=='soft'){
+                            softwhere=`and ${q(childTable)}.is_deleted is not true`
+                        }
+                        const baseJoin = `${q(tableName)}.id = ${q(childTable)}.${tableName}_id ${softwhere}`;
                         const extra = field.getOnStatement();
                         const extraArgs = field.getOnArgs();
                         let joinCond = baseJoin;
