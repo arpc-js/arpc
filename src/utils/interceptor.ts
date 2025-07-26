@@ -1,12 +1,12 @@
 export function interceptor(target: any, key: string, descriptor: PropertyDescriptor) {
     const original = descriptor.value;
     descriptor.value = async function (...args: any[]) {
-        if (key == 'reset') {
+        if (key == 'reset') {//新增,修改关闭会触发reset重置total，自动刷新分页
             deepClear(this);//深度置空
             return
         }
         const result = await original.apply(this, args);
-        if (key == 'getPage') {
+        if (key == 'getPage'||key == 'del') {
             //deepClear(this);//深度置空
             this.list = result.list;
             this.total = result.total;

@@ -7,24 +7,32 @@
           <el-input v-model="filter.name" placeholder="Enter name" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="search">查询</el-button>
+          <el-button type="primary" icon="Search" @click="search">查询</el-button>
           <el-button type="primary" @click="o.migrate()">增量迁移</el-button>
         </el-form-item>
       </el-form>
     </div>
 
     <!-- 表格区域 -->
-    <el-table :data="tableData" style="width: 100%">
+    <el-table :data="tableData" style="width: 100%" border>
       <el-table-column prop="id" label="ID" width="100" />
       <el-table-column prop="name" label="arpc对象" />
-      <el-table-column label="操作" width="240">
+      <el-table-column width="240" align="right">
+        <!-- 表头插槽替代label，显示“操作” + 新增按钮 -->
         <template #header>
-          <el-button size="small" @click="openDialog('add')">新增</el-button>
+          <div style="display:flex; align-items:center; justify-content:flex-end; gap: 8px;">
+            <el-button
+                size="mini"
+                type="primary"
+                icon="Plus"
+                @click="openDialog('add')"
+            >新增</el-button>
+          </div>
         </template>
         <template #default="scope">
-          <el-button size="small" @click="openDialog('detail', scope.row)">详情</el-button>
-          <el-button size="small" @click="openDialog('edit', scope.row)">修改</el-button>
-          <el-button size="small" type="danger" @click="del(scope.row.id)">删除</el-button>
+          <el-button icon="View" circle  size="small" @click="openDialog('detail', scope.row)"/>
+          <el-button icon="Edit" type="primary" circle size="small" @click="openDialog('edit', scope.row)"/>
+          <el-button icon="Delete" type="danger" circle size="small"  @click="del(scope.row.id)"/>
         </template>
       </el-table-column>
     </el-table>

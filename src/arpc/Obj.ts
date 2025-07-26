@@ -196,7 +196,7 @@ ALTER TABLE ${table}
 
             // ===== ✅ 生成表单 form =====
             if (!col.hide?.includes('add')) {
-                if (subClass&&type.includes('[]')) {
+                if (!type.includes('[]')&&subClass) {//一对多
                     const tableColumns = Object.entries(subClass.props)
                         .map(([subKey, { tag: subTag }]) => `
       <el-table-column label="${subTag}" prop="${subKey}">
@@ -226,7 +226,7 @@ ALTER TABLE ${table}
     </el-table-column>
     </el-table>
   </el-form-item>`);
-                }else if (subClass) {
+                }else if (subClass) {//1对1
                     const objectFields = Object.entries(subClass.props)
                         .map(([subKey, { tag: subTag }]) => `
       <el-input v-model="obj.${key}.${subKey}" placeholder="请输入${subTag}" />
@@ -312,26 +312,35 @@ ALTER TABLE ${table}
 
         // 操作列
         tableColumns.push(`
-  <el-table-column label="操作" width="240">
-    <template #header>
-      <el-button size="small" @click="openDialog('add')">新增</el-button>
-    </template>
+  <el-table-column label="操作" width="240" align="right">
+        <!-- 表头插槽替代label，显示“操作” + 新增按钮 -->
+        <template #header>
+          <div style="display:flex; align-items:center; justify-content:flex-end; gap: 8px;">
+            <el-button
+                size="mini"
+                type="primary"
+                icon="Plus"
+                @click="openDialog('add')"
+            >新增</el-button>
+          </div>
+        </template>
     <template #default="scope">
-      <el-button size="small" @click="openDialog('detail', scope.row)">详情</el-button>
-      <el-button size="small" @click="openDialog('edit', scope.row)">修改</el-button>
-      <el-button size="small" type="danger" @click="obj.del(scope.row.id)">删除</el-button>
+      <el-button icon="View" circle size="small" @click="openDialog('detail', scope.row)"/>
+      <el-button icon="Edit" circle size="small" type="primary" @click="openDialog('edit', scope.row)"/>
+      <el-button icon="Delete" circle size="small" type="danger" @click="obj.del(scope.row.id)"/>
     </template>
   </el-table-column>`.trim())
 
         // ===== ✅ 渲染区域拼接 =====
-        const table = `<el-table :data="obj.list" style="width: 100%">\n${tableColumns.join('\n')}\n</el-table>`
+        const table = `<el-table border :data="obj.list" style="width: 100%">\n${tableColumns.join('\n')}\n</el-table>`
         const form = `<el-form :model="obj">\n${formItems.join('\n')}\n</el-form>`
         const toolbar = `
 <div class="toolbar">
   <el-form :inline="true" class="filter-form">
     ${toolbarItems.join('\n')}
     <el-form-item>
-      <el-button type="primary" @click="obj.getPage()">查询</el-button>
+      <el-button type="primary" icon="Search" @click="obj.getPage()">查询</el-button>
+      <el-button type="primary" icon="Refresh" @click="obj.reset()">重置</el-button>
     </el-form-item>
   </el-form>
 </div>`.trim()
@@ -394,8 +403,7 @@ ${props}
     }
 }
 //@ts-ignore
-let temp = `
-<template>
+let temp = `<template>
   <el-card>
     <!-- 筛选区域 -->
     --toolbar--
