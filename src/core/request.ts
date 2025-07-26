@@ -1,7 +1,7 @@
 let base_url, vue_login, uni_login;
 export function initReq({ base_url:url, vue_login: vlogin, uni_login: ulogin }) {
     base_url = url;
-    vue_login = ulogin;
+    vue_login = vlogin;
     uni_login = ulogin;
     console.log('init:',base_url,vue_login,uni_login)
 }

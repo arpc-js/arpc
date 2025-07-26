@@ -400,11 +400,12 @@ async function loadAndInjectTypes(name: string): Promise<any> {
     }
 }
 
+//空对象{}，不进行deepAssign
 async function deepAssign(instance: any, data: any): Promise<any> {
     const types = instance.constructor.types || {};
     for (const key in data) {
         if (key === 'args') continue;
-        if (!(key in {...types,page:0,size:0,sel:null})) continue; // 只处理定义过的字段
+        if (!(key in {...types,id:0,page:0,size:0,sel:null,created_at:undefined,updated_at:undefined,is_deleted:false})) continue; // 只处理定义过的字段
         const value = data[key];
         const declared = types[key];
 /*        if (key === 'sel' && Array.isArray(value)&&value.length>0) {
@@ -426,9 +427,13 @@ async function deepAssign(instance: any, data: any): Promise<any> {
                 }
             } else if (isBasicType(declared)) {
                 instance[key] = castBasicValue(value, declared);
-            } else {
-                const Cls = await loadAndInjectTypes(declared);
-                instance[key] = await deepAssign(new Cls(), value);
+            }else if (declared=='{}'||declared=='any'||declared=='unknown'){
+                instance[key] =value
+            }else {
+                if (value && typeof value === 'object' && Object.keys(value).length > 0) {
+                    const Cls = await loadAndInjectTypes(declared);
+                    instance[key] = await deepAssign(new Cls(), value);
+                }
             }
         } else {
             instance[key] = value;

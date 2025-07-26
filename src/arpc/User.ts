@@ -17,10 +17,10 @@ export class User extends ArBase<User> {
     @prop({ tag: '简历',filter: true})
     profile: Profile
     @prop({ tag: '角色',filter: true})
-    roles: Role[]
+    roles: Role []
     @required('name', 'pwd')//验证参数和
     async login(code) {
-        console.log(await User.sel('id','name',Role.sel('*')).get`id>${2}`)
+        //console.log(await User.sel('**').get`id>${2}`)
         ctx.info(`User.add called with a=${this.name}, b=${this.pwd}`);
         ctx.info('Request URL:', ctx.req?.url);
         ctx.err('Request URL:', ctx.req?.url);
@@ -29,7 +29,7 @@ export class User extends ArBase<User> {
         return {token,id:1,name:'java程序员'};
     }
     async add2({a, b}: { a: number; b: number }) {
-        ctx.info(`User.add called with a=${a}, b=${b}`);
+         ctx.info(`User.add called with a=${a}, b=${b}`);
         ctx.info('Request URL:', ctx.req?.url);
         const token = jwt.sign({uid: 1}, 'secret', {expiresIn: '2h'});
         return {sum: a + b};

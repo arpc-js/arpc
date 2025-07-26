@@ -1,8 +1,9 @@
 import {controllers} from '../core/Arpc.ts';
 import path from 'path';
 import fs from 'fs/promises';
-import {getsql, ArBase, dbType} from "../core/ArBase.ts";
-export class Obj extends ArBase{
+import {getsql, dbType} from "../core/ArBase.ts";
+import { existsSync } from 'fs';
+export class Obj{
     name:string
     menu:{}
     attr:[]
@@ -10,7 +11,6 @@ export class Obj extends ArBase{
         return Object.keys(controllers).map((x, i) => {
             const Cls = controllers[x];
             const inst = new Cls();
-
             const props = Cls.props || {}; // 你的结构是 object 而不是 array
             const attr = Object.keys(props).map(key => {
                 const p = props[key];
@@ -162,6 +162,8 @@ ALTER TABLE ${table}
         //@ts-ignore
         for (const key in ctrl.props) {
             let type=ctrl.types[key]
+            console.log('typetypetype',ctrl)
+            console.log('typetypetype',type)
             let subClass=controllers[type.toLowerCase().replaceAll('[]','')]
             //@ts-ignore
             const col = ctrl.props[key]
@@ -340,6 +342,10 @@ ALTER TABLE ${table}
             .replaceAll('--toolbar--', toolbar)
             .replaceAll('clazzPlaceHolder', ctrl.name)
 
+        if (existsSync(`src/views/${ctrl.name.toLowerCase()}`)) {
+            // 文件不存在，直接返回或处理
+            return;
+        }
         await fs.mkdir(`src/views/${ctrl.name.toLowerCase()}`, { recursive: true })
         await fs.writeFile(`src/views/${ctrl.name.toLowerCase()}/gets.vue`, template)
 
@@ -348,24 +354,40 @@ ALTER TABLE ${table}
     async add() {
         const className = this.name;
         const fileName = `${className}.ts`;
-        const filePath = path.resolve('./src/api', fileName); // 可根据你的项目结构调整
+        const filePath = path.resolve('./src/arpc', fileName); // 可根据你的项目结构调整
         // 构建属性字符串
+        const baseTypes = ['bigint','string', 'number', 'boolean', 'any', 'unknown', 'Date','{}','[]']
+        let imports=[]
         const props = this.attr.map(a =>{
             a[`${a.input}`]=a.source
             let {input,source,key,type,...rest}=a
+            //若type不是基本类型和{},[]等类型要导包imports.push(import  {type} from "./type.ts")
+            if (!baseTypes.includes(type)) {
+                let rawType=type.replaceAll('[]','').replaceAll(' ','')
+                imports.push(`import { ${rawType} } from "./${rawType}.ts"`)
+            }
             return`    @prop(${JSON.stringify(rest)})
     ${key}: ${type};`
         }).join('\n');
         // 构建 class 内容
-        const content = `import {PgBase,prop,menu} from "../core/PgBase.ts"
+        const content = `import {ArBase,prop,menu} from "../core/ArBase.ts"
+${imports.join('\n')}
 @menu(${JSON.stringify(this.menu)})        
-export class ${className} extends PgBase{
+export class ${className} extends ArBase{
 ${props}
 }`
         await fs.writeFile(filePath, content, 'utf-8');
         console.log(`✅ 类文件已生成: ${filePath}`);
         let m=await import(`./${fileName}`)
         console.log(m)
+        let cla=m[className]
+        let types={}
+        this.attr.forEach(a => {
+            types[a.key] = a.type
+        })
+        cla.types=types
+        controllers[className.toLowerCase()]=cla
+        console.log(controllers)
         //m[className].migratePage()
         //调用migrate，生成gets页面，渲染多列表格，渲染多个表单item
         return 'OK';
@@ -394,7 +416,7 @@ let temp = `
 <script lang="ts" setup>
 import { ref,onMounted } from 'vue';
 
-import {clazzPlaceHolder} from "../../api/clazzPlaceHolder.ts";
+import {clazzPlaceHolder} from "../../arpc/clazzPlaceHolder.ts";
 let obj=new clazzPlaceHolder()
 obj.getPage()
 onMounted(async () => {

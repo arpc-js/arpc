@@ -30,7 +30,6 @@ export async function arbase(config: string|{ dsn: string,rpc_dir:string,del_mod
     }else {
         dsn=config
     }
-    console.log(rpc_dir)
     controllers=await init_class(rpc_dir)
     if (dsn.startsWith('postgres://')) {
         dbType = 'postgres'
@@ -67,15 +66,15 @@ export function tx(target: any, methodName: string, descriptor: PropertyDescript
             throw new Error('Database not initialized or unsupported dbType')
         }
         try {
-            await client.exec('BEGIN')
+            await client.query('BEGIN')
             let result
             await asyncLocalStorage.run({ tx: client }, async () => {
                 result = await originalMethod.apply(this, args)
             })
-            await client.exec('COMMIT')
+            await client.query('COMMIT')
             return result
         } catch (err) {
-            await client.exec('ROLLBACK')
+            await client.query('ROLLBACK')
             throw err
         } finally {
             if (dbType === 'postgres') {
@@ -139,10 +138,22 @@ export class ArBase <T extends ArBase<T> = any>{
                 fields = raw.split(',').map(f => f.trim());
             }
         }
-
+        // 统一展开所有字段为一维数组（处理可能混合传入字符串、对象等）
+        const normalized: any[] = [];
+        for (let field of fields) {
+            if (typeof field === 'string') {
+                if (field.includes(',')) {
+                    normalized.push(...field.split(',').map(f => f.trim()).filter(Boolean));
+                } else {
+                    normalized.push(field);
+                }
+            } else {
+                normalized.push(field); // 保留对象（如子表.sel() 结果）
+            }
+        }
         // 默认逻辑
         const instance = new this();
-        instance.#sel = fields
+        instance.#sel = normalized
         return instance;
     }
     isManyToMany(that): boolean {
@@ -195,7 +206,7 @@ export class ArBase <T extends ArBase<T> = any>{
     }
     get page() {
         //@ts-ignore
-        return this._page ?? 1;
+        return this._page;
     }
 
     set page(val: number) {
@@ -204,7 +215,7 @@ export class ArBase <T extends ArBase<T> = any>{
 
     get size() {
         //@ts-ignore
-        return this._size ?? 10;
+        return this._size;
     }
 
     set size(val: number) {
@@ -262,12 +273,16 @@ export class ArBase <T extends ArBase<T> = any>{
     //返回多条，单挑自己解构[user]
     static async getPage(){
         let obj=this.sel('*')
+        obj.page=obj.page??1
+        obj.size=obj.size??10
         let list=await obj.get()
         let total=await obj.count()
         return {list,total}
     }
     async getPage() {
         try {
+            this.page=this.page??1
+            this.size=this.size??10
             let list = await this.get();
             let total = await this.count();
             return { list, total };
@@ -290,9 +305,9 @@ export class ArBase <T extends ArBase<T> = any>{
         } else {
             let softwhere=''
             if (conf.del_mode=='soft'){
-                softwhere=`${table}.is_deleted IS NOT TRUE`
+                softwhere=` WHERE ${table}.is_deleted IS NOT TRUE`
             }
-            whereClause = `WHERE ${softwhere}`;
+            whereClause = softwhere
         }
         const allArgs = [...joinArgs, ...whereArgs];
         const text = `SELECT COUNT(*) AS count FROM ${table} ${joins.join(' ')} ${whereClause}`;
@@ -315,18 +330,18 @@ export class ArBase <T extends ArBase<T> = any>{
         } else {
             let softwhere=''
             if (conf.del_mode=='soft'){
-                softwhere=`${table}.is_deleted IS NOT TRUE`
+                softwhere=` WHERE ${table}.is_deleted IS NOT TRUE`
             }
-            whereClause = `WHERE ${softwhere}`;
+            whereClause = softwhere;
         }
         let allArgs = [...joinArgs, ...whereArgs];
         //判断分页，如果有分页就把主表换成分页的,where放前面,参数翻转
         //若是单表查询page加在where后
-        if (joins.length>0&&this.page!=0&&this.size!=0){
+        if (joins.length>0&&this.page&&this.size){
             table=`(select * from ${table} ${whereClause} ORDER BY id DESC LIMIT ${this.size} OFFSET ${(this.page-1)*this.size}) as ${table}`;
             whereClause=''
             allArgs = [...whereArgs,...joinArgs];
-        }else if (this.page!=0&&this.size!=0){
+        }else if (this.page&&this.size){
             whereClause=whereClause+` ORDER BY id DESC LIMIT ${this.size} OFFSET ${(this.page-1)*this.size}`
         }
         const text = `SELECT ${selectCols.join(', ')} FROM ${table} ${joins.join(' ')}${whereClause}`;
@@ -397,7 +412,7 @@ export class ArBase <T extends ArBase<T> = any>{
     }
     //防止声明式事务无限递归
     async _sync():Promise<number> {
-        console.log(this.types)
+        console.log(this)
         const table = this.table
         const { main, oneToOne, oneToMany } = splitFields(this);
         // 操作主表增删改，硬删除额外判断，软删除复用update
@@ -593,12 +608,18 @@ function buildWhereClause(
     return { whereClause:whereSql ? ` WHERE ${whereSql}` : '', whereArgs };
 }
 
+//不能操作空对象，空数组
 function splitFields(obj) {
     const main = {}, oneToOne = {}, oneToMany = {};
     for (const [k, v] of Object.entries(obj)) {
-        if (Array.isArray(v)) oneToMany[k] = v;
-        else if (v && typeof v === 'object') oneToOne[k] = v;
-        else if (v !== null && v !== undefined) main[k] = v;
+        if (Array.isArray(v)) {
+            if (v.length > 0) oneToMany[k] = v; // 只处理非空数组
+        } else if (v && typeof v === 'object') {
+            if (Object.keys(v).length > 0) oneToOne[k] = v; // 只处理非空对象
+        } else if (v !== null && v !== undefined) {
+            main[k] = v; // 原始值或基本类型
+        }
+        // 其他情况跳过
     }
     return { main, oneToOne, oneToMany };
 }

@@ -148,8 +148,7 @@ onMounted(() => {
 const showDialog = ref(false);
 const dialogMode = ref<'add' | 'edit' | 'detail'>('add');
 const dialogTitle = ref('');
-
-function openDialog(mode, row) {
+function openDialog(mode, row=null) {
   dialogMode.value = mode;
   dialogTitle.value = mode === 'add' ? '新增' : mode === 'edit' ? '修改' : '查看详情';
   if (row) {

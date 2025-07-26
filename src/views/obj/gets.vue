@@ -8,7 +8,7 @@
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="search">查询</el-button>
-          <el-button type="primary" @click="o.migrate()">迁移</el-button>
+          <el-button type="primary" @click="o.migrate()">增量迁移</el-button>
         </el-form-item>
       </el-form>
     </div>
@@ -16,7 +16,7 @@
     <!-- 表格区域 -->
     <el-table :data="tableData" style="width: 100%">
       <el-table-column prop="id" label="ID" width="100" />
-      <el-table-column prop="name" label="云对象" />
+      <el-table-column prop="name" label="arpc对象" />
       <el-table-column label="操作" width="240">
         <template #header>
           <el-button size="small" @click="openDialog('add')">新增</el-button>
@@ -136,7 +136,6 @@
 </template>
 <script lang="ts" setup>
 import { reactive, ref } from 'vue'
-import { post } from '../../utils/request.ts'
 import { Obj } from '../../arpc/Obj.ts'
 
 // 过滤器
@@ -196,12 +195,6 @@ function addAttr() {
 async function submitAdd() {
   await o.add() // 内部已 RPC 写入 .ts 文件
   showDialog.value = false
-  gets()
-}
-
-// 删除
-async function del(id: number) {
-  await post('/permission/del', { id })
   gets()
 }
 </script>
